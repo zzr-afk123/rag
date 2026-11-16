@@ -114,9 +114,18 @@ rag-assistant/
 ```powershell
 python -m venv .venv; .\.venv\Scripts\Activate.ps1
 pip install -r requirements-dev.txt
+# 要跑真实向量与精排（bge-m3 / bge-reranker）再加装模型包，否则运行时自动降级 mock：
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+#   pip install -r requirements-model.txt
 Copy-Item .env.example .env          # 填 DEEPSEEK_API_KEY；不填则自动 mock
 $env:PYTHONPATH = "src"              # 或 pip install -e .
+python scripts\manage_users.py init  # 账号库 config/users.yaml 不入库，干净检出后必须先建
 ```
+
+`config/users.yaml` 里是 PBKDF2 哈希，属于凭据，已被 `.gitignore` 排除（模板见
+`config/users.yaml.example`）。**不建它，`auth.enabled=true` 的服务会拒绝启动**——
+这是刻意的：空账号库等于"人人都是访客"。随机口令只打印一次，同时写进
+`logs/credentials.txt`（同样不入库）。
 
 常用覆盖（优先级：环境变量 > .env > settings.yaml）：
 
@@ -858,8 +867,14 @@ $ python scripts/chat_demo.py --session demo
  "should_refuse": false, "note": "政策原文含明确年限"}
 ```
 
-当前 10 题：8 题可答（覆盖 4 份文档 × 学籍/办事/报销三个域）、2 题应拒答（知识库里确实没有）。
+当前 **36 题**（31 可答 + 5 应拒答），另有 `data/eval/adversarial_set.jsonl` **26 题**
+（越界、无关、注入式提问，专测闸门会不会被带偏）。语料是 `data/raw/` 的 6 份
+加 `data/raw/uploads/`（部门上传）5 份，共 **11 份文档**已入库。
 标注 `expected_sections` 与 `expected_answer_points` 是为了能区分"召回到了正确文档但答错了要点"。
+
+> 11 份文档这个规模，Hit@1 之类"检索是否命中期望文档"的指标**没有区分力**：
+> 候选池只有几十个 chunk，随便一个词面重合都能撞对。§9.4 的数字要当成
+> "链路没坏"的回归基线，不能当成检索质量的证明——扩语料是评测叙事的第一件事（§14）。
 
 ### 9.2 运行
 
@@ -888,7 +903,7 @@ python scripts\download_models.py                            # 下载真实模�
 
 ### 9.4 实测结果（36 题 · 真实链路 · LLM 评审，2026-10-31）
 
-语料扩到 6 份文档（新增《图书馆管理办法》《实验室安全管理规定》），
+那一轮的语料是 6 份文档（《图书馆管理办法》《实验室安全管理规定》刚加进来，现已 11 份，见 §9.1），
 评测集扩到 **36 题**（31 可答 + 5 应拒答），覆盖：数字/时限、材料清单、机构名、
 跨文档多跳、口语化提问、越界与无关问题。
 
@@ -1090,8 +1105,20 @@ uvicorn rag_assistant.api.main:app --host 0.0.0.0 --port 8000
 ## 12. 测试
 
 ```powershell
-python -m pytest            # 491 passed in ~76s
+pip install -r requirements-dev.txt
+python scripts\manage_users.py init --weak-demo-passwords   # 干净检出后先建账号库，见下
+python -m pytest            # 41 个用例文件 · 507 passed · 约 95s（mock 链路，不联网）
 ```
+
+两条与"能不能跑起来"直接相关的约定：
+
+- **测试不需要 torch**：真实模型包单独放在 `requirements-model.txt`，
+  `requirements(-dev).txt` 只装跑测试要用的东西。`embeddings/bge.py` 与
+  `retrieval/reranker.py` 的 import 都在函数内部，缺包时自动走 mock。
+- **干净检出后要先 `manage_users.py init`**：`config/users.yaml` 是凭据、已 gitignore，
+  而 `api/main.py` 在 import 时就建 app，`auth.enabled=true` 配空账号库会直接
+  `ConfigError`——不建账号库，整条 API 测试链在 CI 上全红。
+  `.github/workflows/ci.yml` 就是把这两步写死在 pytest 之前（ubuntu 3.11/3.12 + windows 3.12）。
 
 | 用例文件 | 覆盖点 |
 |---|---|
@@ -1112,6 +1139,11 @@ python -m pytest            # 491 passed in ~76s
 | **test_scheduler** | mode=off 不启动、任务注册与 next_run、重复 start 幂等、忙碌跳过（`skipped`）、`_tick` 不抛异常 |
 | **test_watcher** | 默认关闭、防抖合并 5 次事件为 1 次、格式过滤、真实 watchdog 事件、目录缺失、stop 幂等 |
 | **test_kb_locking** | 写锁确实被使用、锁文件清理、查询等待后 409、**清单回滚**、分批提交（2+2）、新增文档同步后可检索 |
+| **test_web_proxy** | 联网判断/查询改写、Bing 与 360 两种解析、相关性过滤与兜底、【联网资料】块注入系统提示词与"搜不到也要说明"、缓存、**SSRF 闸门**（含逐跳重定向复检）、代理口令 |
+| **test_context** / **test_context_merge** | 资料围栏只包正文、多块编号与围栏同序；按"文档+章节"合并、`context_min_score` 过滤、token 预算（含围栏开销） |
+| **test_security** / **test_router** / **test_console** | 公网保护的令牌校验与限流滑窗；云端失败自动切本地且统计可观测；运维台的实时计数、质量口径、错误日志与接口形状 |
+| **test_dept_upload** / **test_versions** / **test_evaluate** | 部门拖拽上传→增量同步→manifest 入库；同一份文件多版本只索引最新一版；评测脚本的指标计算、阈值标定、报告渲染与端到端取数 |
+| **test_chunk_tables** / **test_textfix** / **test_gaps** | 表格按行分组切分（`table_max_rows`，避免行级提问被同表其他行稀释）；回答去噪（表格拍平、剥离模型自列的引用清单）；知识库缺口清单与"引用回查原文" |
 
 ---
 
@@ -1123,13 +1155,16 @@ python -m pytest            # 491 passed in ~76s
 2. token 数为近似值（tiktoken 优先，离线降级启发式，±15%）。
 3. 删除语义 = 目录镜像，不保留历史版本。
 4. **mock 分数不可比**，阈值必须用真实模型标定。
-5. **真实模型从未跑过**：本机无 torch / sentence-transformers，bge-m3 与 bge-reranker-v2-m3
-   只有"延迟加载 + 缺依赖明确报错"的代码路径，**没有实测吞吐与分数**。
+5. **真实模型只在一台机器上测过**：§9.4/§9.5 的数字来自本机 RTX 5060 Laptop（8GB）
+   + 11 份语料，reranker 上 GPU、bge-m3 留 CPU。换显卡、换语料规模、换并发量，
+   吞吐与分数都要重测——尤其 40 篇以上语料下检索延迟与拒答分布都会变。
 6. Chroma 兼容分支仅在 1.5.9 验证；BM25 重建是全量的；memory 后端是暴力检索（勿用于生产）。
 
 **阶段 C 新增**
 
-7. **改写质量与 mock 无关**：真实 DeepSeek 的改写效果未验证（无 Key），只有解析/降级/过滤逻辑被测过。
+7. **改写的独立贡献没量化**：36 题的分数是整链路的，"关掉 Multi-Query / 关掉指代消解"
+   这一组消融还没跑（§14），所以现在只能说"改写没把结果拖坏"，不能说"改写值多少分"。
+   解析、降级、跑题过滤这些代码路径有单测。
 8. **流式 usage 不含生成阶段 token**（客户端流式接口不回传用量），同步接口的 usage 是完整的。
 9. **会话并发未加锁**：`session.store` 内部有锁，但"读历史 → 生成 → 写历史"整体不是原子的，
    同一 `session_id` 并发提问可能交叉；阶段 E 的同步锁只保护索引，会话级并发需额外方案（未做）。
@@ -1139,8 +1174,9 @@ python -m pytest            # 491 passed in ~76s
 
 **阶段 D 新增**
 
-12. **没有鉴权与限流**：接口完全开放，任何人可调用（会消耗 DeepSeek 额度）。
-    `pip install slowapi` 或交给网关做限流/鉴权，本项目未实现。
+12. **没有文档级权限**：登录与角色管的是"谁能看哪个页面"（§6.6），检索本身不按部门过滤——
+    任何登录用户问得到全库内容。要做到"某份文件只对本部门可见"，得在 chunk 上加可见性字段
+    并在检索入口按 `user.department` 过滤（未实现）。
 13. **同步任务状态在内存里**：`job_id`、`last_report` 随进程重启丢失；任务历史不落库。
 14. **单 worker 才能保证一致**（见 6.1）；水平扩展需要把会话与锁外置（Redis），未做。
 15. **SSE 无心跳**：长回答没问题，但经过会掐空闲连接的网关（如部分云 LB 60s 超时）时，
@@ -1172,12 +1208,17 @@ python -m pytest            # 491 passed in ~76s
     一句话答案需要 ~961 completion tokens / ~39s；改写 JSON 与 `[n]` 引用都不稳定。
     要本地跑，建议换 **非思考的 instruct 模型**（Qwen2.5-7B-Instruct、Qwen3-8B 关闭 thinking、
     或 14B Q4），并用 `scripts/llm_smoke.py` 先验四项格式要求；
-27. **未实测 DeepSeek 云端的真实效果**（无 Key）；上表里 cloud 行是空白，不是"通过"。
+27. **本地模型 vs 云端没有对照数据**：§9.4 是云端 `deepseek-chat` 的成绩，§13-26 说明手头的
+    4B 量化模型过不了格式关；**非思考型 instruct 模型（Qwen2.5-7B-Instruct 等）跑同一套题
+    的结果还没测**，所以"离线也能达到可用水平"目前是推断，不是数字。
 
-28. **公网保护只有令牌 + 单进程限流**：没有用户体系、没有审计、没有按用户配额；
-    真要对外，请在网关层再加一层（Nginx `limit_req`、Cloudflare WAF）。
-29. **`/console` 未做权限隔离**：它和公众页在同一个服务里，公网部署时应把 `/console`
-    挡在网关后面（例如只允许内网 IP 访问），或给控制台单独加一层 Basic Auth。
+28. **对外保护到"账号 + 角色 + 进程内限流"为止**：有 PBKDF2 口令、会话 Cookie、
+    访客/学生/部门/管理员四种角色和每分钟滑窗限流，但**没有按用户配额、没有并发排队、
+    没有失败锁定外的风控**；问答记录只落在本机 `logs/qa.jsonl`，没有集中审计。
+    真要对外，网关层还得加一层（Nginx `limit_req`、Cloudflare WAF）。
+29. **控制台的权限只到角色**：`/console` 与 `/dept` 由 `AuthMiddleware` 限定 dept/admin
+    （`auth.py` 的 `DEPT_PREFIXES`），但它和公众页在同一进程同一端口上；公网部署时仍建议
+    在网关再挡一层（只放内网 IP 或加 Basic Auth），别让"角色判断"成为唯一一道墙。
 30. **主备切换只在异常时发生**：不做"回答质量"评估式切换，也不会因为备用更慢而回切；
     一次请求内不会重试主模型（避免重复计费与重复流式输出）。
 
@@ -1196,8 +1237,9 @@ python -m pytest            # 491 passed in ~76s
     要么补同义词，要么接受漏配——自动补词不在本项目范围内。
 35. **统计把 JSONL 全量读进内存**：十万条以内没问题；再大要换 SQLite/数仓（未做）。
 36. **周报是纯文本、无图表、按部门各发一封**：没有合并发送，也不做送达回执。
-37. **公网部署的安全边界在网关**：应用只有"单进程令牌 + 每分钟限流"，没有用户体系、
-    没有审计日志、没有按部门配额；HTTPS、防护、封禁都交给 Nginx/Caddy/云 WAF。
+
+> 原先这里还有一条"公网部署只有令牌 + 限流，没有用户体系与审计"——那是阶段 D 的写照，
+> 与 §6.6 的账号/角色/会话直接矛盾，已删；对外保护的现状与边界见上面第 28 条。
 
 
 
@@ -1207,5 +1249,23 @@ python -m pytest            # 491 passed in ~76s
 
 | 阶段 | 内容 |
 |---|---|
-| F | `data/eval/golden_set.jsonl`（10 条）、`scripts/evaluate.py`（Hit@1/3/5、MRR、拒答准确率、LLM-as-judge 忠实度）、阈值标定曲线、Docker、评测报告 |
+| F | `data/eval/golden_set.jsonl`（10 条起步，现 36 条 + `adversarial_set.jsonl` 26 条）、`scripts/evaluate.py`（Hit@1/3/5、MRR、拒答准确率、LLM-as-judge 忠实度）、阈值标定曲线、Docker、评测报告 |
 | G | claim 级引用校验（§5.4，`generation/claims.py`）、评测取数 bug 修复、逐句支持率指标 |
+| H | 部门目录与联系方式、`/dept` 看板与拖拽上传、问答统计与周报导出、知识库缺口清单 |
+
+### 还没做的（按性价比排序）
+
+1. **语料扩到 40–100 篇**。11 篇文档下 Hit@1=1.000 只说明链路没坏，不说明检索好：
+   候选池几十个 chunk，词面一撞就中。这一条不解决，下面所有指标都是自娱自乐。
+2. **消融表**：BM25 only / 向量 only / +RRF / +rerank / 关闸门（`claim_check=off`）——
+   现在报告里只有"全开"的一组数，说不出每个组件值多少分（§13-7 说的就是这个缺口）。
+3. **两套题分开报**：现在 36 题里既有"把原文换个字面说法"也有"别人重新组织语言问同一件事"，
+   后者才是真实用户。混在一起的平均分会把前者的成绩算到后者头上。
+4. **Hit@1 改在答案正文上判**：现在的口径是"期望文档出现在召回候选里"（§9.3），
+   检索到了但没进 prompt、进了但没被引用，都照样算命中。
+5. **接一个公开中文检索集**（C-MTEB / T2Ranking 任一子集）：私有 36 题别人无法复现，
+   公开集能让"我们的检索还行"这句话有对标物。
+6. **本地 instruct 模型作为主结果，云端作为对照**：赛事要的是"离线可跑"，
+   目前离线那格是空的（§13-27），云端 `deepseek-chat` 反而只有它的成绩。
+7. **文档级可见性**（§13-12）：制度库分部门之后迟早要面对"这份只对财务部可见"。
+
