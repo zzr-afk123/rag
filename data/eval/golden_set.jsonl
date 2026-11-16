@@ -1,0 +1,36 @@
+{"question": "休学最长可以多久？", "expected_doc": "学生学籍管理规定.md", "expected_sections": ["第七条 休学条件"], "expected_answer_points": ["一年为期", "累计不得超过两年"], "should_refuse": false, "note": "年限双要素"}
+{"question": "复学需要提交什么材料？", "expected_doc": "学生学籍管理规定.md", "expected_sections": ["第九条 复学办理"], "expected_answer_points": ["开学前一个月", "康复证明"], "should_refuse": false, "note": ""}
+{"question": "新生请假最多可以请多久？", "expected_doc": "学生学籍管理规定.md", "expected_sections": ["第四条 新生入学"], "expected_answer_points": ["两周"], "should_refuse": false, "note": "数字型"}
+{"question": "每学期什么时候注册？没按时注册会怎样？", "expected_doc": "学生学籍管理规定.md", "expected_sections": ["第五条 注册时间"], "expected_answer_points": ["开学前两周", "自动退学"], "should_refuse": false, "note": "时间+后果"}
+{"question": "哪些情况会被退学？", "expected_doc": "学生学籍管理规定.md", "expected_sections": ["第十条 退学情形"], "expected_answer_points": ["连续两周未参加教学活动"], "should_refuse": false, "note": "列举型"}
+{"question": "家里经济困难，能先注册后补学费吗？", "expected_doc": "学生学籍管理规定.md", "expected_sections": ["第六条 缓交学费与注册"], "expected_answer_points": ["缓交学费", "一学期"], "should_refuse": false, "note": "口语化提问"}
+{"question": "学士学位由谁审议授予？", "expected_doc": "学生学籍管理规定.md", "expected_sections": ["第十二条 学位授予"], "expected_answer_points": ["学位评定委员会"], "should_refuse": false, "note": "机构名"}
+{"question": "休学期间还能享受在校生待遇吗？借书权限受影响吗？", "expected_doc": "学生学籍管理规定.md", "expected_docs": ["学生学籍管理规定.md", "图书馆管理办法.md"], "expected_sections": ["第八条 休学办理流程"], "expected_answer_points": ["不享受在校生待遇"], "should_refuse": false, "note": "跨文档多跳：学籍规定+借阅权限"}
+{"question": "在读证明去哪里办？", "expected_doc": "办事指南-在读证明.txt", "expected_sections": ["三、办理方式"], "expected_answer_points": ["一站式服务大厅", "教务处学籍科"], "should_refuse": false, "note": "地点"}
+{"question": "线上申请在读证明多久能办完？", "expected_doc": "办事指南-在读证明.txt", "expected_sections": ["五、办理时限与费用"], "expected_answer_points": ["1 个工作日"], "should_refuse": false, "note": "时限"}
+{"question": "同一学期重复开在读证明要收钱吗？收多少？", "expected_doc": "办事指南-在读证明.txt", "expected_sections": ["五、办理时限与费用"], "expected_answer_points": ["2 元"], "should_refuse": false, "note": "金额"}
+{"question": "让同学替我去开在读证明，需要带什么？", "expected_doc": "办事指南-在读证明.txt", "expected_sections": ["四、所需材料"], "expected_answer_points": ["委托书", "代办人身份证"], "should_refuse": false, "note": "委托场景"}
+{"question": "毕业以后还能开在读证明吗？", "expected_doc": "办事指南-在读证明.txt", "expected_sections": ["六、注意事项"], "expected_answer_points": ["学历学位证明"], "should_refuse": false, "note": "边界情形"}
+{"question": "省内出差住宿费每人每天限额是多少？", "expected_doc": "科研经费报销管理办法.docx", "expected_docs": ["科研经费报销管理办法.docx", "差旅与会议费标准表.xlsx"], "expected_sections": ["第五条 单据要求"], "expected_answer_points": ["400 元"], "should_refuse": false, "note": "两份文件都有，均算命中"}
+{"question": "会议费每人每天限额多少？由谁审批？", "expected_doc": "科研经费报销管理办法.docx", "expected_sections": ["第五条 单据要求"], "expected_answer_points": ["500 元", "科研处"], "should_refuse": false, "note": "表格双列"}
+{"question": "差旅费报销要在多少天内办理？", "expected_doc": "科研经费报销管理办法.docx", "expected_sections": ["第三条 差旅费"], "expected_answer_points": ["15 个工作日"], "should_refuse": false, "note": "时限"}
+{"question": "单张发票金额超过 5000 元，报销时还要附什么？", "expected_doc": "科研经费报销管理办法.docx", "expected_sections": ["第四条 会议费与材料费"], "expected_answer_points": ["合同", "比价"], "should_refuse": false, "note": "材料清单"}
+{"question": "劳务费报销需要哪些附件？", "expected_doc": "科研经费报销管理办法.docx", "expected_sections": ["第六条 劳务费"], "expected_answer_points": ["工作量说明"], "should_refuse": false, "note": ""}
+{"question": "图书馆周五几点开门？", "expected_doc": "图书馆管理办法.md", "expected_sections": ["第一条 开放安排"], "expected_answer_points": ["8:00"], "should_refuse": false, "note": "时间点"}
+{"question": "周末图书馆几点关门？", "expected_doc": "图书馆管理办法.md", "expected_sections": ["第一条 开放安排"], "expected_answer_points": ["21:00"], "should_refuse": false, "note": "时间点"}
+{"question": "本科生一次最多能借几本书？借多久？", "expected_doc": "图书馆管理办法.md", "expected_sections": ["第三条 借阅权限"], "expected_answer_points": ["10 册", "30 天"], "should_refuse": false, "note": "表格取值"}
+{"question": "图书逾期一天罚多少钱？", "expected_doc": "图书馆管理办法.md", "expected_sections": ["第五条 逾期与赔偿"], "expected_answer_points": ["0.2 元"], "should_refuse": false, "note": "金额"}
+{"question": "在校外怎么用学校的电子数据库？", "expected_doc": "图书馆管理办法.md", "expected_sections": ["第七条 电子资源"], "expected_answer_points": ["校园 VPN"], "should_refuse": false, "note": "方式"}
+{"question": "研讨间一次最多能用多久？怎么约？", "expected_doc": "图书馆管理办法.md", "expected_sections": ["第八条 研讨间预约"], "expected_answer_points": ["3 小时", "提前 1 天"], "should_refuse": false, "note": "双要素"}
+{"question": "自习座位一次能约几个小时？", "expected_doc": "图书馆管理办法.md", "expected_sections": ["第二条 自习区"], "expected_answer_points": ["4 小时"], "should_refuse": false, "note": "数字"}
+{"question": "危险化学品入库后多久要完成台账登记？", "expected_doc": "实验室安全管理规定.docx", "expected_sections": ["第五条 采购与登记"], "expected_answer_points": ["3 个工作日"], "should_refuse": false, "note": "时限"}
+{"question": "剧毒品应该怎么存放？", "expected_doc": "实验室安全管理规定.docx", "expected_sections": ["第六条 存放要求"], "expected_answer_points": ["双人双锁"], "should_refuse": false, "note": "表格取值"}
+{"question": "易燃液体在实验室单间最多能存多少？", "expected_doc": "实验室安全管理规定.docx", "expected_sections": ["第六条 存放要求"], "expected_answer_points": ["20 升"], "should_refuse": false, "note": "表格取值"}
+{"question": "实验室出事故后多久必须上报？", "expected_doc": "实验室安全管理规定.docx", "expected_sections": ["第九条 报告时限"], "expected_answer_points": ["1 小时"], "should_refuse": false, "note": "时限"}
+{"question": "做高危实验要提前几天提交风险评估？", "expected_doc": "实验室安全管理规定.docx", "expected_sections": ["第八条 高危实验审批"], "expected_answer_points": ["5 个工作日"], "should_refuse": false, "note": "时限"}
+{"question": "进实验室对着装有什么要求？", "expected_doc": "实验室安全管理规定.docx", "expected_sections": ["第七条 个人防护"], "expected_answer_points": ["实验服", "护目镜"], "should_refuse": false, "note": "要求列举"}
+{"question": "郑州今天天气怎么样？", "expected_doc": "", "expected_sections": [], "expected_answer_points": [], "should_refuse": true, "note": "完全无关"}
+{"question": "食堂在哪个楼，几点开饭？", "expected_doc": "", "expected_sections": [], "expected_answer_points": [], "should_refuse": true, "note": "知识库无食堂信息"}
+{"question": "隔壁学院的学费是多少？", "expected_doc": "", "expected_sections": [], "expected_answer_points": [], "should_refuse": true, "note": "超出范围（其他单位）"}
+{"question": "校长的手机号是多少？", "expected_doc": "", "expected_sections": [], "expected_answer_points": [], "should_refuse": true, "note": "隐私/无依据"}
+{"question": "明天上午有课吗？", "expected_doc": "", "expected_sections": [], "expected_answer_points": [], "should_refuse": true, "note": "个人课表，知识库不含"}

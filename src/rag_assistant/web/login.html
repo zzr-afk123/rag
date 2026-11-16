@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta http-equiv="Cache-Control" content="no-store, must-revalidate" />
+<link rel="icon" href="/static/emblem.png" type="image/png" />
+<link rel="apple-touch-icon" href="/static/emblem.png" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#0d4c92" />
+<title>登录 · 郑州大学制度问答</title>
+<style>
+  :root { --brand:#0d4c92; --brand2:#1663b0; --gold:#c8a45c; --ink:#12233c; --muted:#5c6f88; --line:#dfe7f1; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    padding: 24px 16px; color: var(--ink);
+    font: 15px/1.7 "PingFang SC", "Microsoft YaHei", -apple-system, "Segoe UI", sans-serif;
+    background:
+      radial-gradient(900px 420px at 12% -8%, rgba(34,116,194,.5), transparent 62%),
+      linear-gradient(155deg, #072e59 0%, #0d4c92 55%, #14619f 100%);
+  }
+  .card {
+    width: 100%; max-width: 420px; background: #fff; border-radius: 18px;
+    padding: 30px 30px 24px; box-shadow: 0 22px 60px rgba(3, 20, 44, .38);
+  }
+  .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; }
+  .brand img { height: 44px; width: auto; }
+  .brand .motto { font-size: 11.5px; color: var(--muted); letter-spacing: .18em; border-left: 1px solid var(--line); padding-left: 12px; }
+  h1 { font-size: 21px; margin: 0 0 4px; letter-spacing: .01em; }
+  .sub { color: var(--muted); font-size: 12.5px; margin: 0 0 20px; }
+  label { display: block; font-size: 12px; color: var(--muted); margin: 12px 0 5px; letter-spacing: .04em; }
+  input {
+    width: 100%; height: 44px; padding: 0 13px; border: 1px solid var(--line); border-radius: 11px;
+    font: inherit; font-size: 16px; outline: none; background: #fbfdff;
+  }
+  input:focus { border-color: #9fc0e6; box-shadow: 0 0 0 4px rgba(13,76,146,.1); }
+  button {
+    width: 100%; height: 44px; border: 0; border-radius: 11px; font: inherit; font-size: 15px;
+    cursor: pointer; margin-top: 16px;
+  }
+  button.primary { background: linear-gradient(135deg, var(--brand), var(--brand2)); color: #fff; font-weight: 600; box-shadow: 0 8px 20px rgba(13,76,146,.22); }
+  button.primary:disabled { background: #b9c7d8; box-shadow: none; cursor: not-allowed; }
+  button.ghost { background: transparent; color: var(--brand); border: 1px solid var(--line); margin-top: 10px; }
+  .error {
+    margin-top: 12px; padding: 9px 12px; border-radius: 10px; font-size: 12.5px;
+    background: #fdecec; color: #b23b3b; border: 1px solid #f6d5d5;
+  }
+  .hint { margin-top: 18px; padding-top: 14px; border-top: 1px dashed var(--line); font-size: 11.5px; color: var(--muted); line-height: 1.75; }
+  .hint b { color: var(--ink); font-weight: 600; }
+  @media (max-width: 420px) { .card { padding: 24px 20px 20px; } h1 { font-size: 19px; } }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="brand">
+    <img src="/static/logo.png" alt="郑州大学" />
+    <span class="motto">求是 担当</span>
+  </div>
+
+  <h1>制度与办事流程问答</h1>
+  <p class="sub">学生用学号登录；部门账号可查看问题分布看板。没有账号可先以访客身份体验。</p>
+
+  <form id="loginForm" autocomplete="on">
+    <label for="uid">学号 / 工号</label>
+    <input id="uid" name="username" inputmode="text" autocomplete="username" placeholder="例如 20230001" required />
+    <label for="pwd">密码</label>
+    <input id="pwd" name="password" type="password" autocomplete="current-password" placeholder="请输入密码" required />
+    <button class="primary" id="loginBtn" type="submit">登录</button>
+    <button class="ghost" id="guestBtn" type="button">访客进入（仅问答）</button>
+    <div class="error" id="error" hidden></div>
+  </form>
+
+  <div class="hint">
+    <b>权限说明</b><br />
+    学生：问答、引用溯源、部门联系方式。<br />
+    部门：另可查看问题分布看板、周报与运维台。<br />
+    访客：仅问答，不留身份信息。
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var params = new URLSearchParams(location.search);
+  var next = params.get('next') || '/';
+  // 只允许站内跳转，避免被拼成外链
+  if (next.charAt(0) !== '/' || next.indexOf('//') === 0) next = '/';
+
+  var form = document.getElementById('loginForm');
+  var uid = document.getElementById('uid');
+  var pwd = document.getElementById('pwd');
+  var btn = document.getElementById('loginBtn');
+  var guestBtn = document.getElementById('guestBtn');
+  var errorEl = document.getElementById('error');
+
+  function showError(text) {
+    errorEl.hidden = false;
+    errorEl.textContent = text;
+  }
+  function clearError() { errorEl.hidden = true; }
+
+  async function post(url, body) {
+    var resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined
+    });
+    var data = {};
+    try { data = await resp.json(); } catch (e) { /* 空响应 */ }
+    return { ok: resp.ok, status: resp.status, data: data };
+  }
+
+  form.addEventListener('submit', async function (event) {
+    event.preventDefault();
+    clearError();
+    var id = uid.value.trim();
+    if (!id || !pwd.value) { showError('请填写编号和密码'); return; }
+    btn.disabled = true;
+    btn.textContent = '登录中…';
+    try {
+      var result = await post('/auth/login', { id: id, password: pwd.value });
+      if (result.ok) { location.replace(next); return; }
+      showError(result.data.detail || '登录失败，请稍后重试');
+    } catch (err) {
+      showError('网络异常：' + err.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '登录';
+    }
+  });
+
+  guestBtn.addEventListener('click', async function () {
+    clearError();
+    guestBtn.disabled = true;
+    try {
+      var result = await post('/auth/guest');
+      if (result.ok) { location.replace('/'); return; }
+      showError(result.data.detail || '访客入口不可用');
+    } catch (err) {
+      showError('网络异常：' + err.message);
+    } finally {
+      guestBtn.disabled = false;
+    }
+  });
+})();
+</script>
+</body>
+</html>

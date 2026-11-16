@@ -1,0 +1,43 @@
+# Caddy 反向代理示例（最省事：自动申请并续期 HTTPS 证书）
+#
+# 用法：
+#   1. 域名 A 记录指向服务器公网 IP，放行 80/443；
+#   2. 把本文件内容并入 /etc/caddy/Caddyfile；
+#   3. systemctl reload caddy。
+#
+# 关键点：`flush_interval -1` 关掉响应缓冲，否则 SSE 会被攒成一整段。
+# （Caddy 默认对 text/event-stream 已做 flush，但显式写上更保险，也便于解释。）
+
+zhidu.example.edu.cn {
+    encode zstd gzip
+
+    # SSE：不缓冲、长连接
+    @sse path /chat/stream
+    reverse_proxy @sse 127.0.0.1:8000 {
+        flush_interval -1
+        transport http {
+            read_timeout 300s
+        }
+    }
+
+    # 部门看板只给校内网（可选）：把 10.0.0.0/8 换成学校实际网段
+    # @dept path /dept*
+    # handle @dept {
+    #     @intranet remote_ip 10.0.0.0/8 192.168.0.0/16 172.16.0.0/12
+    #     handle @intranet {
+    #         reverse_proxy 127.0.0.1:8000
+    #     }
+    #     respond "部门看板仅限校内网络访问" 403
+    # }
+
+    reverse_proxy 127.0.0.1:8000 {
+        header_up X-Real-IP {remote_host}
+    }
+
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options SAMEORIGIN
+        Referrer-Policy strict-origin-when-cross-origin
+        -Server
+    }
+}

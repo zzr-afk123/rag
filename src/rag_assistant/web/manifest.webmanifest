@@ -1,0 +1,25 @@
+{
+  "name": "郑州大学 · 制度与办事流程问答",
+  "short_name": "制度问答",
+  "description": "问办事流程、政策规定，答案带原文出处与相关部门联系方式。",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f4f7fb",
+  "theme_color": "#0d4c92",
+  "lang": "zh-CN",
+  "icons": [
+    {
+      "src": "/static/emblem.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/static/emblem-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

@@ -1,0 +1,210 @@
+# =========================================================
+# 全局配置。所有可调参数集中在此，代码中不允许硬编码。
+# 优先级：环境变量(RAG_SECTION__KEY) > .env 专用变量 > 本文件
+# 相对路径一律相对「项目根目录」（本文件的上一级）解析。
+# =========================================================
+
+project:
+  name: rag-assistant
+  timezone: Asia/Shanghai
+
+llm:
+  provider: deepseek        # deepseek | lmstudio | ollama | openai_compatible | mock
+  model: deepseek-chat
+  base_url: https://api.deepseek.com/v1
+  api_key_env: DEEPSEEK_API_KEY   # Key 从环境变量读取，禁止写在这里
+  temperature: 0.1
+  max_tokens: 1200
+  timeout_s: 120            # 本地 4B 模型首包稍慢，给足超时
+  max_retries: 2
+  # 备用模型：主模型失败（超时/无 Key/欠费）时自动切换。由服务端决定，前端不参与。
+  # 典型配置：主 DeepSeek + 备本地 LM Studio，断网/额度用尽仍可用。
+  fallback_provider: ""        # lmstudio | ollama | openai_compatible
+  fallback_base_url: ""        # http://127.0.0.1:1234/v1
+  fallback_model: ""           # LM Studio 里的模型 id
+
+embedding:
+  provider: bge             # bge | mock
+  model: BAAI/bge-m3
+  dim: 1024
+  device: auto              # auto: 有 CUDA 用 GPU，否则 CPU
+  batch_size: 16
+  normalize: true
+  max_length: 512
+  # 模型元数据/权重走的 HF 端点。官方站被墙时不要留空：加载模型会先去
+  # huggingface.co 查元数据，重试 5 次能卡住一两分钟。
+  hf_endpoint: https://hf-mirror.com
+
+vectorstore:
+  backend: chroma           # chroma（Milvus 通过抽象接口后续接入）
+  persist_dir: data/index/chroma
+  collection: kb
+  # collection 实际名称会追加 embedding 指纹，例如 kb__bge-m3-1024
+
+reranker:
+  enabled: true
+  provider: bge             # bge | mock | none
+  model: BAAI/bge-reranker-v2-m3
+  device: auto
+  top_k_in: 30              # 送入 rerank 的候选条数；实测 30→40 无收益，保持 30（更省 GPU）
+  max_length: 512
+  batch_size: 8             # 单批重排候选数；8GB 显卡上 32 会顶满显存，WDDM 换页后重排从 0.6s 掉到几十秒
+  hf_endpoint: https://hf-mirror.com
+
+retrieval:
+  top_n: 5                  # 最终返回条数
+  candidate_k: 20           # 单路召回条数（向量 / BM25 各自）
+  rrf_k: 60                 # RRF 平滑常数
+  weight_vector: 1.0
+  weight_bm25: 1.0
+  enable_multi_query: true
+  multi_query: 3            # 改写后额外生成的等价查询数
+  # 阶段 F 用真实 bge-reranker 标定（35 题）：可答问题最优分 0.57-0.73，
+  # 无关问题 0.50-0.53；取 0.55 —— 误拒 0 题、正确拒答 5/5。
+  # （0.60 会把「劳务费报销附件」这类 0.57 的可答题误拒，是评测抓出来的。）
+  score_threshold: 0.55
+  # 进入 prompt 的资料块最低分。score_threshold 只决定"要不要拒答"，
+  # 不加这道闸门时 0.50 上下的噪声块（实验室规定、在读证明）也会被一起喂给模型，
+  # 模型顺手引用 → "问反诈却答实验室"。一般与 score_threshold 取同值；0 = 不过滤。
+  context_min_score: 0.55
+  # 词面覆盖闸门：问句里的内容词至少要有这个比例出现在召回片段中，否则直接拒答。
+  # 用于挡住"问天气却答休学"这类无关问题（分数阈值挡不住：检索永远会返回 top-k）。
+  min_lexical_coverage: 0.30   # 0 = 关闭
+  userdict_path: config/jieba_userdict.txt   # BM25 分词自定义词典（学院术语）
+  stopwords_path: config/stopwords_zh.txt    # BM25 停用词表
+
+chunking:
+  max_tokens: 700
+  min_tokens: 120
+  overlap_tokens: 60
+  keep_tables_whole: true
+  table_max_tokens: 1200    # 单表超过此长度才按行切分（且每片重复表头）
+  # 实测（10 题真实链路）：按行切分让要点覆盖从 1.000 降到 0.923、忠实度 1.000→0.900，
+  # 因为表头与数据行被拆到不同 chunk、引用摘录变短。故默认关闭；需要实验时改成 4。
+  table_max_rows: 0         # 0 = 不按行数切分（整表一块）
+
+session:
+  store: memory             # memory | sqlite
+  sqlite_path: data/index/sessions.db
+  max_turns: 6              # 保留最近 N 轮
+  summarize_after: 6        # 超过后触发摘要压缩
+
+generation:
+  max_context_chunks: 5     # 送进 prompt 的最大 chunk 数
+  max_context_tokens: 3000  # 上下文预算（超出按顺序截断）
+  require_citation: true    # 输出无合法 [n] 引用时改判拒答
+  quote_chars: 120          # 引用摘录长度
+  add_disclaimer: true      # 政策类回答强制追加免责声明
+  # ---- claim 级引用校验（闸门 2.5）----
+  # 闸门 2 只查"有没有合法 [n]"，拦不住"编号合法、内容错位"（第 9 题：把《学籍管理
+  # 规定》里的"教务处"标在《办事指南》上）。这里逐句比对结论与所引章节原文，
+  # 先尝试改标，救不回来再按模式处理。
+  # off 关闭 | warn 只记诊断 | fix 改标（默认）| strict 改标+删无依据句子
+  claim_check: fix
+  claim_min_coverage: 0.6     # 句子内容词落在引用章节原文里的比例下限
+  claim_min_tokens: 3         # 内容词少于该数的句子不判（"可以。""办理流程如下："）
+  claim_reassign_margin: 0.15 # 改标门槛：新章节覆盖须比原引高出这么多
+  claim_max_drop_ratio: 0.5   # strict 下删句比例上限，超出就退回只改标
+  claim_number_guard: true    # 金额/天数/期限等阿拉伯数字必须出现在原文中
+  # 以下两段文案由代码追加/替换，不交给 LLM 自由发挥
+  refuse_text: "当前知识库中未找到相关依据，建议咨询对应部门或人工客服。"
+  disclaimer: "提示：以上内容依据知识库原文整理，具体以原文件为准，请以最新发布版本为准。"
+
+sync:
+  mode: schedule            # schedule | watch | off（watch 需同时打开 enable_watcher）
+  interval_seconds: 60      # 新增文档最迟 60s 内可检索
+  watch_dir: data/raw
+  enable_watcher: false
+  watcher_debounce_s: 2     # 文件落盘抖动合并窗口
+  include_patterns: ["*.pdf", "*.docx", "*.md", "*.txt", "*.xlsx"]
+  exclude_dirs: ["__pycache__", ".git", "~$"]
+  default_doc_type: policy  # policy | guide | notice
+  # ---- 并发控制 ----
+  lock_file: data/index/.sync.lock
+  write_lock_timeout_s: 30  # 等不到写锁则抛 IndexBusyError（API → 409）
+  read_lock_timeout_s: 20   # 查询等不到读锁同样 409，避免无限排队
+  stale_lock_s: 900         # 跨进程锁超过此时间视为残留（进程崩溃）
+  commit_batch_docs: 20     # 每 N 个文件提交一次，缩短写锁占用窗口
+  # 同一份文件的多个年份/版本（如「XX规定2025.pdf」「XX规定2026.pdf」）只索引最新一份，
+  # 旧的当删除处理：避免两版同时进 prompt、答出已废止的规定。设 false 则两版都入库。
+  prefer_latest_version: true
+
+logging:
+  level: INFO
+  dir: logs
+  retain_days: 14
+  qa_log: qa.jsonl          # 每次问答一行 JSON，便于统计
+
+server:
+  host: 0.0.0.0
+  port: 8000
+  cors_origins: ["*"]       # 生产请收紧为实际前端域名
+  # 公网暴露时的最低限度保护（默认关闭，内网可不设）
+  public_access_token: ""   # 非空则 /chat* 与 /kb/* 需带 X-Access-Token 或 ?token=
+  rate_limit_per_min: 60    # 每个 IP 每分钟请求上限，0 = 不限
+  # 只有确实部署在 Nginx/Caddy 等反向代理后面才设为 true。
+  # 默认 false：直接读 request.client.host，否则任何人都能用 X-Forwarded-For
+  # 伪造来源 IP，把限流和登录节流旁路掉。
+  trust_forwarded_for: false
+  # 对外域名：部署到公网后填这里（如 https://zhidu.example.edu.cn），
+  # 控制台会显示"分享给别人的地址"。只用于展示，不参与路由。
+  public_url: ""
+
+# ---- 登录与角色权限 ----
+# student：只能用问答页；dept/admin：问答 + 部门看板 + 运维台；guest：只问答。
+# 账号在 config/users.yaml（只存密码哈希，用 scripts/manage_users.py 维护）。
+# 关掉 enabled 会变成"谁都能进、且按管理员处理"——仅开发调试用。
+auth:
+  enabled: true
+  users_file: config/users.yaml
+  session_ttl_hours: 12
+  allow_guest: true
+  cookie_name: rag_session
+  cookie_secure: false     # 上 HTTPS 后改 true
+  login_limit_per_min: 10  # 同一 IP 每分钟最多尝试几次登录
+
+# ---- 品牌（只在页面展示，不参与回答生成）----
+# 换学校/学院只改这里，不用动前端；校徽是自绘 SVG（web/logo.svg），可自行替换。
+branding:
+  school_name: 郑州大学
+  short_name: 郑大
+  motto: 求是 担当
+  site_title: 制度与办事流程问答
+  primary_color: "#0d4c92"
+  accent_color: "#c8a45c"
+  footer_note: 回答依据知识库原文整理，具体以学校官方文件为准
+
+# ---- 部门目录：问题命中关键词时，在答案下方提示联系方式 ----
+# 部门与电话在 config/departments.yaml 里维护（示例数据，上线前请替换）。
+departments:
+  enabled: true
+  config_file: config/departments.yaml
+  max_suggestions: 3     # 一次最多提示几个部门
+
+# ---- 部门看板（/dept）：近 N 天问题分布、周报预览与手动投递 ----
+# 看板顶部还有「拖拽上传」：文件落到 data/raw/uploads/，随后自动增量同步入库。
+dept_console:
+  enabled: true
+  token: ""              # 非空则 /dept/* 数据接口需要 X-Access-Token 或 ?token=
+  window_days: 30
+  top_n: 12
+  upload_max_mb: 20        # 拖拽上传：单个文件大小上限（MB）
+  upload_rate_per_min: 20  # 拖拽上传：每账号每分钟最多几个文件，0 = 不限
+
+# ---- 周报投递：每周把「本部门被问什么」发给部门联系人 ----
+# 默认关闭且只落盘（dry_run），避免误发给真实部门。
+report:
+  enabled: false
+  weekday: mon           # mon..sun
+  hour: 9
+  minute: 0
+  days: 7
+  dry_run: true          # true：只写 .eml/.md 到 outbox_dir，不真发
+  smtp_host: ""          # 如 smtp.zzu.edu.cn
+  smtp_port: 465
+  smtp_ssl: true
+  smtp_user: ""
+  smtp_password_env: SMTP_PASSWORD   # 密码放环境变量，不写进 YAML
+  from_addr: ""
+  subject_prefix: "【学生咨询周报】"
+  outbox_dir: logs/outbox

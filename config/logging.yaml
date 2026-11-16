@@ -1,0 +1,55 @@
+# =========================================================
+# 标准 logging.dictConfig 格式。
+# ${LOG_DIR} / ${LEVEL} / ${RETAIN_DAYS} 由 logging_setup.py 在加载前替换，
+# 因此这里可以安全地引用配置项而不写死路径。
+# =========================================================
+version: 1
+disable_existing_loggers: false
+
+formatters:
+  standard:
+    format: "%(asctime)s | %(levelname)-7s | %(name)-28s | %(message)s"
+    datefmt: "%Y-%m-%d %H:%M:%S"
+  plain:
+    format: "%(levelname)s | %(message)s"
+
+handlers:
+  console:
+    class: logging.StreamHandler
+    level: ${LEVEL}
+    formatter: plain
+    stream: ext://sys.stdout
+  app_file:
+    class: logging.handlers.TimedRotatingFileHandler
+    level: ${LEVEL}
+    formatter: standard
+    filename: "${LOG_DIR}/app.log"
+    when: midnight
+    interval: 1
+    backupCount: ${RETAIN_DAYS}
+    encoding: utf-8
+    delay: true
+  error_file:
+    class: logging.handlers.TimedRotatingFileHandler
+    level: ERROR
+    formatter: standard
+    filename: "${LOG_DIR}/error.log"
+    when: midnight
+    interval: 1
+    backupCount: ${RETAIN_DAYS}
+    encoding: utf-8
+    delay: true
+
+loggers:
+  rag_assistant:
+    level: ${LEVEL}
+    handlers: [console, app_file]
+    propagate: false
+  rag_assistant.error:
+    level: ERROR
+    handlers: [error_file]
+    propagate: false
+
+root:
+  level: WARNING
+  handlers: [console, app_file]

@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta http-equiv="Cache-Control" content="no-store, must-revalidate" />
+<meta http-equiv="Pragma" content="no-cache" />
+<link rel="icon" href="/static/emblem.png" type="image/png" />
+<link rel="apple-touch-icon" href="/static/emblem.png" />
+<link rel="manifest" href="/static/manifest.webmanifest" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="制度问答" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="format-detection" content="telephone=no" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
+<meta name="theme-color" content="#0d4c92" />
+<title>制度与办事流程问答 · 郑州大学</title>
+<meta name="description" content="问办事流程、政策规定，答案带原文出处。命中部门时同步给出联系电话与办公地点。" />
+<meta property="og:title" content="制度与办事流程问答" />
+<meta property="og:description" content="问办事流程、政策规定，答案带原文出处。" />
+<meta property="og:type" content="website" />
+<style>
+  :root {
+    --brand: #0d4c92;
+    --brand-2: #1663b0;
+    --brand-soft: #e8f0fa;
+    --gold: #c8a45c;
+    --gold-soft: #faf3e3;
+    --ink: #12233c;
+    --muted: #5c6f88;
+    --line: #dde5f0;
+    --bg: #f4f7fb;
+    --panel: #ffffff;
+    --ok: #157a4b;
+    --warn: #a86412;
+    --warn-bg: #fdf6e7;
+    --radius: 16px;
+    --shadow: 0 10px 30px rgba(13, 76, 146, .08);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font: 15px/1.68 "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--brand); text-decoration: none; }
+
+  /* ---------- 顶栏 ---------- */
+  .topbar {
+    position: sticky; top: 0; z-index: 20;
+    background: rgba(255, 255, 255, .92);
+    backdrop-filter: saturate(150%) blur(10px);
+    border-bottom: 1px solid rgba(13, 76, 146, .1);
+  }
+  .bar {
+    max-width: 960px; margin: 0 auto; padding: 10px 18px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; color: inherit; }
+  /* 官方横版标识（校徽 + 校名 + 英文），按高度缩放，不改比例 */
+  .brand-logo { height: 38px; width: auto; display: block; }
+  .brand-motto {
+    font-size: 11.5px; color: var(--muted); letter-spacing: .22em;
+    border-left: 1px solid var(--line); padding-left: 12px; margin-left: 2px;
+  }
+  .nav { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+  .nav a {
+    font-size: 13px; color: var(--muted); padding: 7px 11px; border-radius: 999px;
+    border: 1px solid transparent;
+  }
+  .nav a:hover { color: var(--brand); border-color: var(--line); background: #fff; }
+
+  /* ---------- 主视觉 ---------- */
+  .hero {
+    position: relative; overflow: hidden;
+    background:
+      radial-gradient(1200px 420px at 12% -10%, rgba(34, 116, 194, .55), transparent 60%),
+      linear-gradient(150deg, #072e59 0%, #0d4c92 52%, #14619f 100%);
+    color: #fff;
+  }
+  .hero::after {
+    content: ""; position: absolute; inset: auto 0 0 0; height: 3px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  }
+  .hero::before {
+    content: ""; position: absolute; right: -140px; top: -120px; width: 420px; height: 420px;
+    border: 1px solid rgba(255, 255, 255, .14); border-radius: 50%;
+    box-shadow: 0 0 0 60px rgba(255,255,255,.04), 0 0 0 130px rgba(255,255,255,.03);
+    pointer-events: none;
+  }
+  .hero-inner { position: relative; max-width: 960px; margin: 0 auto; padding: 34px 18px 30px; }
+  .kicker {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 12px; letter-spacing: .18em; text-transform: uppercase;
+    color: #d8e6f7; margin: 0 0 12px;
+  }
+  .kicker::before { content: ""; width: 26px; height: 1px; background: var(--gold); display: inline-block; }
+  .hero h1 { font-size: 30px; line-height: 1.35; margin: 0 0 10px; font-weight: 700; letter-spacing: .01em; }
+  .hero h1 em { font-style: normal; color: #f0dcae; }
+  .hero .sub { margin: 0; max-width: 620px; font-size: 14px; color: #cddff3; }
+  .chips { display: flex; flex-wrap: wrap; gap: 9px; margin: 22px 0 0; }
+  .chip {
+    border: 1px solid rgba(255,255,255,.26); background: rgba(255,255,255,.09);
+    color: #eaf2fb; border-radius: 999px; padding: 8px 14px; font-size: 13px;
+    cursor: pointer; transition: background .18s, transform .18s;
+  }
+  .chip:hover { background: rgba(255,255,255,.18); transform: translateY(-1px); }
+
+  .hero-links { margin-top: 20px; display: flex; flex-wrap: wrap; gap: 16px; font-size: 13px; }
+  .hero-links a {
+    color: #e9f1fb; text-decoration: none; padding-bottom: 2px;
+    border-bottom: 1px solid rgba(255,255,255,.34);
+  }
+  .hero-links a:hover { color: #fff; border-color: var(--gold); }
+
+  .dir-table {
+    margin: 18px auto 0; max-width: 640px; text-align: left;
+    background: #fbfdff; border: 1px solid var(--line); border-radius: 12px;
+    padding: 10px 14px;
+  }
+  .dir-table summary { cursor: pointer; font-size: 13px; color: var(--brand); }
+  .dir-table .row {
+    display: grid; grid-template-columns: 128px 104px minmax(0, 1fr) 148px;
+    align-items: baseline; gap: 3px 12px; padding: 9px 0;
+    border-bottom: 1px dashed var(--line); font-size: 12.8px; color: #3d526e;
+  }
+  .dir-table .row:last-child { border-bottom: 0; }
+  .dir-table b { color: var(--ink); }
+  .dir-table span { color: var(--muted); }
+  .dir-table .hours { white-space: nowrap; }
+  @media (max-width: 620px) {
+    .dir-table .row { grid-template-columns: 1fr auto; gap: 2px 10px; }
+    .dir-table .row .addr { grid-column: 1 / -1; }
+    .dir-table .row .hours { grid-column: 1 / -1; }
+  }
+
+  /* ---------- 主体 ---------- */
+  .wrap { max-width: 960px; margin: 0 auto; padding: 22px 16px 150px; }
+  .notice {
+    margin: 0 0 14px; padding: 11px 14px; border-radius: 12px; font-size: 13px;
+    background: var(--warn-bg); color: var(--warn); border: 1px solid #f2e2bd;
+  }
+  .empty-state {
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 26px 22px; box-shadow: var(--shadow); text-align: center;
+  }
+  .empty-state h2 { margin: 0 0 8px; font-size: 17px; }
+  .empty-state p { margin: 0 auto; max-width: 520px; color: var(--muted); font-size: 13.5px; }
+  .empty-state .dirs { margin-top: 18px; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+  .dir-pill {
+    font-size: 12.5px; color: var(--brand); background: var(--brand-soft);
+    border-radius: 999px; padding: 6px 12px; border: 1px solid #d4e3f6; cursor: pointer;
+  }
+
+  .thread { display: flex; flex-direction: column; gap: 18px; }
+  .turn { display: flex; flex-direction: column; gap: 9px; }
+  .q {
+    align-self: flex-end; max-width: 86%;
+    background: linear-gradient(135deg, var(--brand), var(--brand-2));
+    color: #fff; padding: 10px 15px; border-radius: 15px 15px 4px 15px;
+    font-size: 14.5px; box-shadow: 0 6px 18px rgba(13,76,146,.18);
+  }
+  .a {
+    position: relative; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 4px var(--radius) var(--radius) var(--radius);
+    padding: 16px 18px 14px 18px; box-shadow: var(--shadow);
+  }
+  .a::before {
+    content: "答"; position: absolute; left: -1px; top: -1px;
+    background: var(--brand); color: #fff; font-size: 11px; letter-spacing: .1em;
+    padding: 2px 8px; border-radius: 4px 0 10px 0;
+  }
+  .a.refused { background: var(--warn-bg); border-color: #f0dfb8; }
+  .a.refused::before { content: "拒答"; background: var(--warn); }
+  .answer-body { white-space: pre-wrap; word-break: break-word; font-size: 14.8px; margin-top: 6px; }
+  .answer-body .disclaimer {
+    white-space: normal; margin-top: 12px; padding-top: 9px;
+    border-top: 1px dashed var(--line);
+    font-size: 12.2px; line-height: 1.6; color: #8a97ab;
+  }
+  .answer-body .caret::after { content: "▌"; color: var(--brand); animation: blink 1s steps(2) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .meta { margin-top: 10px; font-size: 11.5px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px 12px; }
+  .meta .pill { background: #f1f5fb; border-radius: 999px; padding: 2px 9px; }
+
+  /* ---------- 引用来源 ---------- */
+  .sources { margin-top: 14px; border-top: 1px dashed var(--line); padding-top: 12px; }
+  .sources h4 {
+    margin: 0 0 9px; font-size: 12px; letter-spacing: .16em; color: var(--muted);
+    font-weight: 600; display: flex; align-items: center; gap: 8px;
+  }
+  .sources h4::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+  .src-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .src {
+    background: #f7faff; border: 1px solid #e6eefa; border-radius: 11px;
+    padding: 9px 11px; font-size: 12.6px; color: #33475f;
+    cursor: pointer; transition: border-color .15s ease, background .15s ease;
+  }
+  .src:hover { border-color: #bcd3ef; background: #f2f8ff; }
+  .src .open-hint { float: right; font-size: 11px; color: var(--brand); opacity: .75; }
+  .src .idx {
+    display: inline-block; min-width: 20px; text-align: center; margin-right: 6px;
+    background: var(--brand); color: #fff; border-radius: 6px; font-size: 11px; padding: 1px 5px;
+  }
+  .src .loc { color: var(--muted); }
+  .src .quote { margin: 5px 0 0; color: #4a5c73; font-size: 12px; line-height: 1.6; }
+
+  /* 正文里的 [1]：可点，点开看原文那一段并高亮 */
+  .answer-body .cit {
+    color: var(--brand); font-weight: 600; cursor: pointer;
+    border-bottom: 1px dotted rgba(13, 76, 146, .45); margin: 0 1px;
+  }
+  .answer-body .cit:hover { background: rgba(13, 76, 146, .08); border-bottom-style: solid; }
+
+  /* ---------- 原文弹层 ---------- */
+  .srcmodal {
+    position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center;
+    background: rgba(16, 33, 56, .42); backdrop-filter: blur(2px); padding: 18px;
+  }
+  .srcmodal[hidden] { display: none; }
+  .srcmodal .panel {
+    width: min(760px, 100%); max-height: min(78vh, 720px); overflow: hidden;
+    background: #fff; border-radius: 16px; box-shadow: 0 24px 60px rgba(9, 27, 48, .3);
+    display: flex; flex-direction: column;
+  }
+  .srcmodal .head {
+    display: flex; align-items: flex-start; gap: 10px; padding: 15px 18px 11px;
+    border-bottom: 1px solid var(--line);
+  }
+  .srcmodal .head .title { flex: 1; min-width: 0; font-size: 14.5px; font-weight: 650; color: var(--ink); }
+  .srcmodal .head .loc { margin-top: 3px; font-size: 12px; color: var(--muted); font-weight: 400; }
+  .srcmodal .close {
+    flex: none; border: 0; background: #f1f5fb; color: #5b6d85; font-size: 16px; line-height: 1;
+    width: 30px; height: 30px; border-radius: 9px; cursor: pointer;
+  }
+  .srcmodal .close:hover { background: #e4ecf7; }
+  .srcmodal .body {
+    padding: 14px 18px 18px; overflow: auto; font-size: 13.6px; line-height: 1.85;
+    color: #2f4258; white-space: pre-wrap; word-break: break-word;
+  }
+  .srcmodal mark { background: #fff1b8; color: inherit; border-radius: 3px; padding: 0 1px; }
+
+  /* ---------- 部门联系方式 ---------- */
+  .contacts { margin-top: 14px; display: flex; flex-direction: column; gap: 9px; }
+  .contacts .cap { font-size: 12px; letter-spacing: .16em; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+  .contacts .cap::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+  .contact {
+    display: flex; gap: 12px; align-items: flex-start;
+    background: linear-gradient(180deg, #fffdf7, #fdf8ee);
+    border: 1px solid #f0e3c7; border-radius: 12px; padding: 11px 13px;
+  }
+  .contact .badge {
+    flex: none; width: 34px; height: 34px; border-radius: 9px;
+    background: linear-gradient(135deg, #e8d3a4, #c8a45c);
+    color: #4a3413; font-size: 12px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .contact .info { min-width: 0; }
+  .contact .info b { font-size: 13.8px; }
+  .contact .info .full { color: var(--muted); font-size: 12px; margin-left: 4px; }
+  .contact .rows {
+    margin-top: 5px; display: grid; grid-template-columns: auto minmax(0, 1fr);
+    gap: 2px 10px; font-size: 12.6px; color: #47597a; align-items: baseline;
+  }
+  .contact .rows .k { color: #8a97ab; font-size: 11.6px; white-space: nowrap; }
+  .contact .rows .v { min-width: 0; word-break: break-word; }
+  .contact .rows a { color: var(--brand); font-weight: 600; }
+  .contact .note { margin-top: 4px; font-size: 11px; color: #a08a5f; }
+
+  /* ---------- 底部输入 ---------- */
+  footer {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 15;
+    background: rgba(244, 247, 251, .94); backdrop-filter: blur(10px);
+    border-top: 1px solid var(--line);
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+  }
+  .askbar { max-width: 960px; margin: 0 auto; display: flex; gap: 9px; align-items: flex-start; }
+  .qwrap { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+  textarea {
+    width: 100%; resize: none; min-height: 46px; max-height: 132px; padding: 12px 14px;
+    border: 1px solid var(--line); border-radius: 13px; font: inherit; font-size: 16px;
+    outline: none; background: #fff; color: var(--ink); line-height: 1.5;
+  }
+  textarea::placeholder { color: #9db0c6; }
+  textarea:focus { border-color: #9fc0e6; box-shadow: 0 0 0 4px rgba(13, 76, 146, .1); }
+  .qhint {
+    display: flex; justify-content: space-between; gap: 10px; padding: 0 5px;
+    font-size: 11px; line-height: 1.3; color: var(--muted);
+  }
+  .qhint .kbd { white-space: nowrap; }
+  .qhint .count { font-variant-numeric: tabular-nums; }
+  .qhint .count.warn { color: #c0392b; font-weight: 600; }
+  button.send {
+    height: 46px; min-width: 84px; padding: 0 20px; border: 0; border-radius: 13px; cursor: pointer;
+    background: linear-gradient(135deg, var(--brand), var(--brand-2)); color: #fff;
+    font-size: 15px; font-weight: 600; letter-spacing: .04em;
+    box-shadow: 0 6px 16px rgba(13,76,146,.22);
+    transition: background .15s ease, box-shadow .15s ease;
+  }
+  button.send:disabled { background: #c3d0e0; box-shadow: none; cursor: not-allowed; }
+  button.send.busy { background: #8aa8c8; }
+  .footline {
+    max-width: 960px; margin: 8px auto 0; display: flex; gap: 6px 12px;
+    flex-wrap: wrap; justify-content: space-between; font-size: 11px; color: var(--muted);
+  }
+  .footline > span:first-child { flex: 1 1 100%; }
+  @media (min-width: 561px) { .footline > span:first-child { flex: 0 1 auto; } }
+  .footline button { border: 0; background: none; color: var(--muted); font-size: 11px; cursor: pointer; padding: 0; text-decoration: underline; }
+  .footline .build { color: #9aabc0; font-size: 10.5px; letter-spacing: .08em; margin-right: 10px; }
+  .authbox { max-width: 960px; margin: 0 auto 10px; display: none; gap: 8px; }
+  .authbox input { flex: 1; padding: 10px 12px; border: 1px solid var(--line); border-radius: 11px; font-size: 14px; }
+
+  @media (max-width: 560px) {
+    .footline .build { display: none; }
+    .qhint { display: none; }
+    footer { padding: 8px 12px calc(8px + env(safe-area-inset-bottom)); }
+    .footline { margin-top: 6px; gap: 4px 10px; }
+    .askbar { gap: 8px; }
+    button.send { min-width: 72px; padding: 0 16px; }
+    .hero h1 { font-size: 23px; }
+    .hero-inner { padding: 26px 16px 24px; }
+    .brand-motto { font-size: 10.5px; padding-left: 9px; letter-spacing: .14em; }
+    .nav a { padding: 6px 8px; font-size: 12px; }
+    .q { max-width: 92%; }
+    .a { padding: 14px 14px 12px; }
+    .brand-logo { height: 30px; }
+  }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="bar">
+    <a class="brand" href="/">
+      <img class="brand-logo" src="/static/logo.png" alt="郑州大学" />
+      <span class="brand-motto" id="brandMotto">求是 担当</span>
+    </a>
+    <nav class="nav">
+      <a href="/dept" data-role="dept" hidden>部门看板</a>
+      <a href="/console" data-role="dept" hidden>运维台</a>
+      <span id="userBox" hidden></span>
+    </nav>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="hero-inner">
+    <p class="kicker">制度与办事流程 · 智能问答</p>
+    <h1>问流程、查规定，<br /><em>答案带原文出处</em></h1>
+    <p class="sub">
+      模糊提问也能查，追问会带上文；每条结论都能展开对应章节的原话。
+      资料里没有的，系统会明确说"没有"，并给出可以打电话问的部门。
+    </p>
+    <div class="chips" id="chips"></div>
+    <div class="hero-links">
+      <a href="/dept">部门看板 →</a>
+      <a href="/console">运维台</a>
+    </div>
+  </div>
+</section>
+
+<main class="wrap">
+  <div id="notice" class="notice" hidden></div>
+  <div class="thread" id="thread"></div>
+
+  <div class="empty-state" id="emptyState">
+    <h2>从一个具体问题开始</h2>
+    <p>把问题说具体更好查："我想休学"不如"休学最长可以多久"。答案下方会给出依据章节与相关部门电话。</p>
+    <div class="dirs" id="dirPills"></div>
+    <details class="dir-table">
+      <summary>各部门联系方式（电话 / 办公地点 / 办公时间）</summary>
+      <div id="dirRows"></div>
+    </details>
+  </div>
+</main>
+
+<footer>
+  <div class="authbox" id="authbox">
+    <input id="tokenInput" type="password" placeholder="此站点需要访问令牌，请粘贴后回车" />
+    <button class="send" id="tokenBtn" type="button">确定</button>
+  </div>
+  <form class="askbar" id="askForm" autocomplete="off">
+    <div class="qwrap">
+      <textarea id="q" rows="1" placeholder="在读证明去哪里办？" maxlength="500" aria-label="输入你的问题"></textarea>
+      <div class="qhint">
+        <span class="kbd">Enter 发送 · Shift + Enter 换行</span>
+        <span class="count" id="qCount">0/500</span>
+      </div>
+    </div>
+    <button class="send" id="sendBtn" type="submit">提问</button>
+  </form>
+  <div class="footline">
+    <span id="footNote">内容依据知识库原文整理，具体以学校官方文件为准</span>
+    <span><span class="build">郑州大学 · v3</span><button id="newBtn" type="button">新对话</button></span>
+  </div>
+</footer>
+
+<div class="srcmodal" id="srcModal" hidden>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="srcModalTitle">
+    <div class="head">
+      <div class="title">
+        <div id="srcModalTitle">原文</div>
+        <div class="loc" id="srcModalLoc"></div>
+      </div>
+      <button class="close" id="srcModalClose" type="button" aria-label="关闭">×</button>
+    </div>
+    <div class="body" id="srcModalBody"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var EXAMPLES = [
+    '休学最长可以多久？',
+    '复学需要提交什么材料？',
+    '在读证明怎么开、多久能拿到？',
+    '差旅住宿费的报销标准是多少？'
+  ];
+
+  var state = {
+    sessionId: 'web-' + Math.random().toString(36).slice(2, 10),
+    busy: false,
+    ready: false,
+    token: sessionStorage.getItem('rag_token') || '',
+    brand: null
+  };
+
+  var threadEl = document.getElementById('thread');
+  var qEl = document.getElementById('q');
+  var qCount = document.getElementById('qCount');
+  var formEl = document.getElementById('askForm');
+  var sendBtn = document.getElementById('sendBtn');
+  var noticeEl = document.getElementById('notice');
+  var chipsEl = document.getElementById('chips');
+  var authboxEl = document.getElementById('authbox');
+  var tokenInput = document.getElementById('tokenInput');
+  var tokenBtn = document.getElementById('tokenBtn');
+  var newBtn = document.getElementById('newBtn');
+  var emptyState = document.getElementById('emptyState');
+  var dirPills = document.getElementById('dirPills');
+
+  var params = new URLSearchParams(location.search);
+  if (params.get('token')) {
+    state.token = params.get('token');
+    sessionStorage.setItem('rag_token', state.token);
+  }
+
+  function headers(extra) {
+    var base = { 'Content-Type': 'application/json' };
+    if (state.token) base['X-Access-Token'] = state.token;
+    return Object.assign(base, extra || {});
+  }
+
+  /* ---------- 品牌 ---------- */
+  function applyBrand(brand) {
+    if (!brand) return;
+    state.brand = brand;
+    var root = document.documentElement.style;
+    if (brand.primary_color) root.setProperty('--brand', brand.primary_color);
+    if (brand.accent_color) root.setProperty('--gold', brand.accent_color);
+    var mottoEl = document.getElementById('brandMotto');
+    if (mottoEl && brand.motto) mottoEl.textContent = brand.motto;
+    document.getElementById('footNote').textContent = brand.footer_note || '';
+    document.title = (brand.site_title || '制度与办事流程问答') + ' · ' + (brand.school_name || '');
+    renderDirectory(brand.departments || []);
+  }
+
+  function renderDirectory(items) {
+    dirPills.innerHTML = '';
+    var rows = document.getElementById('dirRows');
+    if (rows) rows.innerHTML = '';
+
+    items.forEach(function (item) {
+      // 快捷拨号胶囊（有电话才给）
+      if (item.phone) {
+        var pill = document.createElement('button');
+        pill.type = 'button';
+        pill.className = 'dir-pill';
+        pill.textContent = item.name + ' · ' + item.phone;
+        pill.title = (item.address || '') + (item.hours ? '\n' + item.hours : '');
+        pill.addEventListener('click', function () { window.location.href = 'tel:' + item.phone.replace(/\s/g, ''); });
+        dirPills.appendChild(pill);
+      }
+      // 展开表：部门 / 电话 / 地点 / 时间（四列对齐）
+      if (rows) {
+        var row = document.createElement('div');
+        row.className = 'row';
+        var name = document.createElement('b');
+        name.textContent = item.name;
+        row.appendChild(name);
+        if (item.phone) {
+          var tel = document.createElement('a');
+          tel.href = 'tel:' + item.phone.replace(/\s/g, '');
+          tel.textContent = item.phone;
+          row.appendChild(tel);
+        } else {
+          row.appendChild(document.createElement('span'));
+        }
+        var addr = document.createElement('span');
+        addr.className = 'addr';
+        addr.textContent = item.address || '';
+        row.appendChild(addr);
+        var hours = document.createElement('span');
+        hours.className = 'hours';
+        hours.textContent = item.hours || '';
+        row.appendChild(hours);
+        rows.appendChild(row);
+      }
+    });
+  }
+
+  /* ---------- 通用 ---------- */
+  function showAuth() {
+    authboxEl.style.display = 'flex';
+    noticeEl.hidden = false;
+    noticeEl.textContent = '此站点需要访问令牌（token）。请向管理员索取带 token 的链接，或在此粘贴。';
+  }
+
+  tokenBtn.addEventListener('click', function () {
+    var value = tokenInput.value.trim();
+    if (!value) return;
+    state.token = value;
+    sessionStorage.setItem('rag_token', value);
+    authboxEl.style.display = 'none';
+    noticeEl.hidden = true;
+    boot();
+  });
+
+  EXAMPLES.forEach(function (text) {
+    var chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'chip';
+    chip.textContent = text;
+    chip.addEventListener('click', function () {
+      if (!state.ready) return;
+      qEl.value = text;
+      submit();
+    });
+    chipsEl.appendChild(chip);
+  });
+
+  function setNotice(text) {
+    if (!text) { noticeEl.hidden = true; return; }
+    noticeEl.hidden = false;
+    noticeEl.textContent = text;
+  }
+
+  /* 正文里已经带了"引用来源\n- [1] …"这段文本；页面另有更漂亮的引用卡片，
+     所以展示时把尾巴切掉，避免同一份来源出现两遍。复制按钮仍复制完整文本。 */
+  function splitSources(text) {
+    var lines = String(text || '').split('\n');
+    var cut = -1;
+    for (var i = 0; i < lines.length; i++) {
+      if (/^\s*(?:\*\*|##\s*)?\s*(引用来源|参考资料|参考来源|引用文献)/.test(lines[i])) {
+        cut = i;
+        break;
+      }
+    }
+    if (cut < 0) return { body: text, sources: '' };
+    var tail = lines.slice(cut).join('\n');
+    // 只有后面确实是"[1] 《…》"这种清单才切，避免把"来源：教务处"这类正文当清单
+    if (!/\[\d{1,2}\]|《/.test(tail)) return { body: text, sources: '' };
+    var body = lines.slice(0, cut).join('\n');
+    // 免责声明在引用列表之后（"提示：…"），切掉列表时不能把它一起丢掉
+    var notices = tail.split('\n').filter(function (line) {
+      return /^提示[：:]/.test(line.trim());
+    });
+    if (notices.length) body += '\n\n' + notices.join('\n');
+    return { body: body, sources: tail };
+  }
+
+  function renderContacts(root, contacts) {
+    if (!contacts || !contacts.length) return;
+    var wrap = document.createElement('div');
+    wrap.className = 'contacts';
+    var cap = document.createElement('div');
+    cap.className = 'cap';
+    cap.textContent = '相关部门联系方式';
+    wrap.appendChild(cap);
+
+    contacts.forEach(function (item) {
+      var card = document.createElement('div');
+      card.className = 'contact';
+
+      var badge = document.createElement('div');
+      badge.className = 'badge';
+      badge.textContent = (item.name || '').slice(0, 2);
+      card.appendChild(badge);
+
+      var info = document.createElement('div');
+      info.className = 'info';
+
+      var title = document.createElement('div');
+      var strong = document.createElement('b');
+      strong.textContent = item.name || '';
+      title.appendChild(strong);
+      if (item.full_name && item.full_name !== item.name) {
+        var full = document.createElement('span');
+        full.className = 'full';
+        full.textContent = item.full_name;
+        title.appendChild(full);
+      }
+      info.appendChild(title);
+
+      var rows = document.createElement('div');
+      rows.className = 'rows';
+      function addRow(label, node) {
+        var key = document.createElement('span');
+        key.className = 'k';
+        key.textContent = label;
+        var val = document.createElement('span');
+        val.className = 'v';
+        val.appendChild(node);
+        rows.appendChild(key);
+        rows.appendChild(val);
+      }
+      if (item.phone) {
+        var tel = document.createElement('a');
+        tel.href = 'tel:' + item.phone.replace(/\s/g, '');
+        tel.textContent = item.phone;
+        addRow('电话', tel);
+      }
+      if (item.email) {
+        var mail = document.createElement('a');
+        mail.href = 'mailto:' + item.email;
+        mail.textContent = item.email;
+        addRow('邮箱', mail);
+      }
+      if (item.address) {
+        var addr = document.createElement('span');
+        addr.textContent = item.address;
+        addRow('地点', addr);
+      }
+      if (item.hours) {
+        var hours = document.createElement('span');
+        hours.textContent = item.hours;
+        addRow('时间', hours);
+      }
+      info.appendChild(rows);
+
+      if (item.note) {
+        var note = document.createElement('div');
+        note.className = 'note';
+        note.textContent = item.note;
+        info.appendChild(note);
+      }
+      card.appendChild(info);
+      wrap.appendChild(card);
+    });
+    root.appendChild(wrap);
+  }
+
+  function renderSources(root, citations) {
+    if (!citations || !citations.length) return;
+    var box = document.createElement('div');
+    box.className = 'sources';
+    var heading = document.createElement('h4');
+    heading.textContent = '引用来源';
+    box.appendChild(heading);
+
+    var list = document.createElement('ul');
+    list.className = 'src-list';
+    citations.forEach(function (item) {
+      var li = document.createElement('li');
+      li.className = 'src';
+      li.title = '点击查看原文';
+      li.addEventListener('click', function () { showSource(item); });
+
+      var hint = document.createElement('span');
+      hint.className = 'open-hint';
+      hint.textContent = '查看原文';
+      li.appendChild(hint);
+
+      var idx = document.createElement('span');
+      idx.className = 'idx';
+      idx.textContent = '[' + item.index + ']';
+      li.appendChild(idx);
+
+      var loc = document.createElement('span');
+      loc.className = 'loc';
+      var where = '《' + item.doc_name + '》';
+      if (item.section_path) where += ' · ' + item.section_path;
+      if (item.page) where += ' · 第 ' + item.page + ' 页';
+      loc.textContent = where;
+      li.appendChild(loc);
+
+      if (item.quote) {
+        var quote = document.createElement('p');
+        quote.className = 'quote';
+        quote.textContent = item.quote;
+        li.appendChild(quote);
+      }
+      list.appendChild(li);
+    });
+    box.appendChild(list);
+    root.appendChild(box);
+  }
+
+  function addQuestion(text) {
+    var turn = document.createElement('div');
+    turn.className = 'turn';
+    var q = document.createElement('div');
+    q.className = 'q';
+    q.textContent = text;
+    turn.appendChild(q);
+    threadEl.appendChild(turn);
+    if (emptyState) emptyState.hidden = true;
+    q.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    return turn;
+  }
+
+  function addAnswer(turn) {
+    var el = document.createElement('div');
+    el.className = 'a';
+    var body = document.createElement('div');
+    body.className = 'answer-body caret';
+    el.appendChild(body);
+    turn.appendChild(el);
+    return { root: el, body: body };
+  }
+
+  /* ---------- 引用回查：点 [1] 看原文那一段 ---------- */
+  var srcModal = document.getElementById('srcModal');
+  var srcModalTitle = document.getElementById('srcModalTitle');
+  var srcModalLoc = document.getElementById('srcModalLoc');
+  var srcModalBody = document.getElementById('srcModalBody');
+
+  function closeSource() {
+    srcModal.hidden = true;
+    srcModalBody.textContent = '';
+  }
+
+  function locText(item) {
+    var where = '《' + (item.doc_name || '未知文件') + '》';
+    if (item.section_path) where += ' · ' + item.section_path;
+    if (item.page) where += ' · 第 ' + item.page + ' 页';
+    return where;
+  }
+
+  /* 把引文在原文里标黄：摘录可能是截断过的，逐级放宽匹配长度 */
+  function paintQuote(text, quote) {
+    var body = String(text || '');
+    var needle = String(quote || '').trim();
+    if (!body || !needle) {
+      srcModalBody.textContent = body;
+      return;
+    }
+    var candidates = [needle];
+    for (var len = 60; len >= 20; len -= 10) {
+      if (needle.length > len) candidates.push(needle.slice(0, len));
+    }
+    for (var i = 0; i < candidates.length; i++) {
+      var at = body.indexOf(candidates[i]);
+      if (at < 0) continue;
+      var mark = document.createElement('mark');
+      mark.textContent = candidates[i];
+      srcModalBody.textContent = '';
+      srcModalBody.appendChild(document.createTextNode(body.slice(0, at)));
+      srcModalBody.appendChild(mark);
+      srcModalBody.appendChild(document.createTextNode(body.slice(at + candidates[i].length)));
+      return;
+    }
+    srcModalBody.textContent = body;
+  }
+
+  function showSource(item) {
+    if (!item) return;
+    srcModal.hidden = false;
+    srcModalTitle.textContent = '[' + item.index + '] ' + (item.doc_name || '原文');
+    srcModalLoc.textContent = locText(item);
+    srcModalBody.textContent = '正在读取原文…';
+
+    function render(text) {
+      paintQuote(text, item.quote);
+      srcModalBody.scrollTop = 0;
+      var mark = srcModalBody.querySelector('mark');
+      if (mark && mark.scrollIntoView) mark.scrollIntoView({ block: 'center' });
+    }
+
+    if (item.chunk_text) {
+      render(item.chunk_text);
+      return;
+    }
+    if (!item.chunk_id) {
+      srcModalBody.textContent = item.quote || '（这条引用没有可回查的片段 id）';
+      return;
+    }
+    fetch('/kb/chunks/' + encodeURIComponent(item.chunk_id), { headers: headers() })
+      .then(function (resp) {
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        return resp.json();
+      })
+      .then(function (data) {
+        item.chunk_text = data.text || '';
+        render(item.chunk_text);
+      })
+      .catch(function (err) {
+        srcModalBody.textContent =
+          (item.quote ? item.quote + '\n\n' : '') + '（原文读取失败：' + err.message + '）';
+      });
+  }
+
+  function showSourceByIndex(view, index) {
+    var list = (view && view.citations) || [];
+    for (var i = 0; i < list.length; i++) {
+      if (String(list[i].index) === String(index)) {
+        showSource(list[i]);
+        return;
+      }
+    }
+  }
+
+  function buildBody(view, text) {
+    view.body.textContent = '';
+    var pattern = /\[(\d{1,2})\]/g;
+    var last = 0;
+    var found;
+    while ((found = pattern.exec(text)) !== null) {
+      if (found.index > last) {
+        view.body.appendChild(document.createTextNode(text.slice(last, found.index)));
+      }
+      (function (marker, index) {
+        var sup = document.createElement('span');
+        sup.className = 'cit';
+        sup.textContent = marker;
+        sup.title = '查看原文';
+        sup.addEventListener('click', function () { showSourceByIndex(view, index); });
+        view.body.appendChild(sup);
+      })(found[0], found[1]);
+      last = found.index + found[0].length;
+    }
+    if (last < text.length) view.body.appendChild(document.createTextNode(text.slice(last)));
+  }
+
+  if (srcModal) {
+    document.getElementById('srcModalClose').addEventListener('click', closeSource);
+    srcModal.addEventListener('click', function (event) {
+      if (event.target === srcModal) closeSource();
+    });
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape' && !srcModal.hidden) closeSource();
+    });
+  }
+
+  function finalize(view, payload) {
+    view.finalized = true;
+    view.body.classList.remove('caret');
+    view.citations = payload.citations || [];
+    var parts = splitSources(payload.answer || '');
+    var lines = (parts.body || '').trim().split('\n');
+    var notes = [];
+    // 末尾连续的"提示：…"单独成块，别和正文混在一起
+    while (lines.length && /^提示[：:]/.test(lines[lines.length - 1].trim())) {
+      notes.unshift(lines.pop().trim());
+    }
+    buildBody(view, lines.join('\n').trim());
+    if (notes.length) {
+      var note = document.createElement('div');
+      note.className = 'disclaimer';
+      note.textContent = notes.join('\n');
+      view.body.appendChild(note);
+    }
+
+    if (payload.refused) view.root.classList.add('refused');
+
+    var bits = [];
+    if (payload.refused) {
+      bits.push('未找到可靠依据' + (payload.refusal_reason ? '（' + payload.refusal_reason + '）' : ''));
+    }
+    if (payload.latency_ms) bits.push(Math.round(payload.latency_ms) + ' ms');
+    if (payload.rewritten_query && payload.rewritten_query !== payload.question && payload.question) {
+      bits.push('理解为：' + payload.rewritten_query);
+    }
+    if (bits.length) {
+      var meta = document.createElement('div');
+      meta.className = 'meta';
+      bits.forEach(function (text) {
+        var pill = document.createElement('span');
+        pill.className = 'pill';
+        pill.textContent = text;
+        meta.appendChild(pill);
+      });
+      view.root.appendChild(meta);
+    }
+
+    renderSources(view.root, payload.citations);
+    renderContacts(view.root, payload.contacts);
+  }
+
+  function handleFrame(raw, view) {
+    var lines = raw.split('\n');
+    var data = [];
+    for (var i = 0; i < lines.length; i++) {
+      if (lines[i].indexOf('data:') === 0) data.push(lines[i].slice(5).trim());
+    }
+    if (!data.length) return;
+    var payload = data.join('\n');
+    if (payload === '[DONE]') return;
+
+    var event;
+    try { event = JSON.parse(payload); } catch (e) { return; }
+
+    if (event.type === 'token') {
+      view.body.textContent += event.text || '';
+      view.root.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    } else if (event.type === 'error') {
+      // 服务端异常（例如模型掉线）：给出可读提示，不留一个永远闪的光标
+      view.finalized = true;
+      view.body.classList.remove('caret');
+      view.body.textContent = (event.message || '回答过程中出现异常，请重试。');
+      view.root.classList.add('refused');
+    } else if (event.type === 'done' || event.type === 'retract') {
+      if (event.type === 'retract' && !event.refusal_reason) event.refusal_reason = event.reason;
+      finalize(view, event);
+    }
+  }
+
+  function refreshSend() {
+    var value = qEl.value;
+    var length = value.length;
+    if (qCount) {
+      qCount.textContent = length + '/500';
+      qCount.classList.toggle('warn', length >= 460);
+    }
+    sendBtn.classList.toggle('busy', state.busy);
+    if (state.busy) {
+      sendBtn.textContent = '回答中…';
+      sendBtn.disabled = true;
+      return;
+    }
+    sendBtn.textContent = '提问';
+    sendBtn.disabled = !state.ready || !value.trim();
+  }
+
+  async function ask(question) {
+    state.busy = true;
+    refreshSend();
+    var turn = addQuestion(question);
+    var view = addAnswer(turn);
+    try {
+      var response = await fetch('/chat/stream', {
+        method: 'POST',
+        headers: headers(),
+        body: JSON.stringify({ session_id: state.sessionId, question: question })
+      });
+      if (response.status === 401) {
+        turn.remove();
+        showAuth();
+        return;
+      }
+      if (!response.ok) throw new Error('HTTP ' + response.status);
+
+      var reader = response.body.getReader();
+      var decoder = new TextDecoder('utf-8');
+      var buffer = '';
+      while (true) {
+        var chunk = await reader.read();
+        if (chunk.done) break;
+        buffer += decoder.decode(chunk.value, { stream: true });
+        var index;
+        while ((index = buffer.indexOf('\n\n')) >= 0) {
+          var frame = buffer.slice(0, index);
+          buffer = buffer.slice(index + 2);
+          handleFrame(frame, view);
+        }
+      }
+      // 服务端正常会发 done/retract；这里没收到说明连接被中断（代理超时、进程重启）
+      if (!view.finalized) {
+        view.finalized = true;
+        view.body.classList.remove('caret');
+        if (!view.body.textContent.trim()) view.body.textContent = '连接中断，请重试。';
+        view.root.classList.add('refused');
+      }
+    } catch (err) {
+      view.body.classList.remove('caret');
+      view.body.textContent = '请求失败：' + err.message + '（请稍后重试）';
+      view.root.classList.add('refused');
+    } finally {
+      state.busy = false;
+      refreshSend();
+      qEl.focus();
+    }
+  }
+
+  function submit() {
+    if (state.busy) { setNotice('上一条还在回答中，请稍候…'); return; }
+    var question = qEl.value.trim();
+    if (!question) return;
+    qEl.value = '';
+    qEl.style.height = 'auto';
+    refreshSend();
+    ask(question);
+  }
+
+  formEl.addEventListener('submit', function (event) {
+    event.preventDefault();
+    if (!state.ready) { setNotice('知识库尚未就绪，请管理员先构建索引（/console）。'); return; }
+    submit();
+  });
+
+  /* 中文输入法：拼写过程中的回车是"上屏"，不是发送 */
+  var composing = false;
+  qEl.addEventListener('compositionstart', function () { composing = true; });
+  qEl.addEventListener('compositionend', function () { composing = false; });
+
+  qEl.addEventListener('keydown', function (event) {
+    if (event.key !== 'Enter' || event.shiftKey) return;
+    if (composing || event.isComposing || event.keyCode === 229) return;
+    event.preventDefault();
+    if (!state.ready) { setNotice('知识库尚未就绪，请管理员先构建索引（/console）。'); return; }
+    submit();
+  });
+
+  qEl.addEventListener('input', function () {
+    qEl.style.height = 'auto';
+    qEl.style.height = Math.min(qEl.scrollHeight, 132) + 'px';
+    refreshSend();
+  });
+
+  newBtn.addEventListener('click', function () {
+    state.sessionId = 'web-' + Math.random().toString(36).slice(2, 10);
+    threadEl.innerHTML = '';
+    if (emptyState) emptyState.hidden = false;
+    qEl.value = '';
+    qEl.style.height = 'auto';
+    refreshSend();
+    setNotice('');
+    qEl.focus();
+  });
+
+  async function bootBrand() {
+    try {
+      var resp = await fetch('/brand');
+      if (resp.ok) applyBrand(await resp.json());
+    } catch (err) { /* 品牌接口失败不影响问答 */ }
+  }
+
+  async function boot() {
+    try {
+      var response = await fetch('/kb/status', { headers: headers() });
+      if (response.status === 401) { showAuth(); return; }
+      var status = await response.json();
+      state.ready = (status.vector_chunks || 0) > 0;
+      refreshSend();
+      if (state.ready && window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
+        qEl.focus();
+      }
+      if (!state.ready) {
+        setNotice('知识库还没有内容。管理员可打开 /console 点「开始构建知识库」；你也可以先把文档放进 data/raw。');
+      } else {
+        setNotice('');
+      }
+    } catch (err) {
+      setNotice('服务连接失败：' + err.message);
+    }
+  }
+
+  bootBrand();
+  boot();
+})();
+</script>
+<script src="/static/auth-nav.js"></script>
+</body>
+</html>

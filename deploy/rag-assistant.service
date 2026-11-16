@@ -1,0 +1,39 @@
+# systemd 单元示例：把应用做成开机自启的后台服务（Linux 服务器）
+#
+# 安装：
+#   sudo cp deploy/rag-assistant.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now rag-assistant
+#   journalctl -u rag-assistant -f
+#
+# 注意：
+#   - 必须 --workers 1（嵌入式 Chroma + 进程内会话/锁）；
+#   - 用非 root 账号运行，代码放在 /opt/rag-assistant，日志/索引都在项目目录里；
+#   - 只监听 127.0.0.1，公网入口交给 Nginx/Caddy（deploy/nginx.conf 或 Caddyfile）。
+
+[Unit]
+Description=RAG Assistant (制度与办事流程问答)
+After=network.target
+
+[Service]
+Type=simple
+User=rag
+Group=rag
+WorkingDirectory=/opt/rag-assistant
+Environment=PYTHONPATH=/opt/rag-assistant/src
+Environment=HF_ENDPOINT=https://hf-mirror.com
+Environment=HF_HOME=/opt/rag-assistant/.hf
+# Key 放在 /etc/rag-assistant.env（权限 600，属主 rag），不要写进单元文件
+EnvironmentFile=-/etc/rag-assistant.env
+ExecStart=/opt/rag-assistant/.venv/bin/uvicorn rag_assistant.api.main:app \
+    --host 127.0.0.1 --port 8000 --workers 1 \
+    --proxy-headers --forwarded-allow-ips=*
+Restart=always
+RestartSec=5
+# 4.5GB 模型权重常驻，给足内存
+MemoryMax=6G
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

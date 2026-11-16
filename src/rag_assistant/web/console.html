@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta http-equiv="Cache-Control" content="no-store, must-revalidate" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="icon" href="/static/emblem.png" type="image/png" />
+<title>运维台 · 制度与办事流程问答</title>
+<style>
+  :root {
+    --bg: #f2f6fb; --panel: #ffffff; --line: #dfe7f1; --text: #12233c;
+    --muted: #5c6f88; --brand: #0d4c92; --gold: #c8a45c;
+    --ok: #157a4b; --warn: #a86412; --bad: #b3261e;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.6 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; background: var(--bg); color: var(--text); }
+  header {
+    background: linear-gradient(120deg, #072e59, #0d4c92 62%, #17649f); color: #fff;
+    padding: 14px 22px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+  header img { width: 32px; height: 32px; display: block; }
+  header h1 { font-size: 16px; margin: 0; font-weight: 600; }
+  header .spacer { flex: 1; }
+  .pill { font-size: 12px; padding: 3px 10px; border-radius: 999px; background: rgba(255,255,255,.16); color: #eaf2fb; white-space: nowrap; }
+  .pill.ok { background: rgba(21,122,75,.42); }
+  .pill.warn { background: rgba(200,164,92,.42); color: #ffedc8; }
+  .pill.bad { background: rgba(179,38,30,.5); }
+  .navlink { color: #dce8f7; font-size: 12.5px; padding: 5px 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,.22); text-decoration: none; }
+  .navlink:hover { background: rgba(255,255,255,.14); }
+  main { max-width: 1180px; margin: 0 auto; padding: 18px 16px 60px; }
+  .grid { display: grid; gap: 14px; }
+  .kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .two { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; }
+  .card h2 { font-size: 14px; margin: 0 0 10px; color: #2b3d55; letter-spacing: .01em; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .card h2 .sub { font-weight: 400; font-size: 12px; color: var(--muted); }
+  .kpi .label { font-size: 12px; color: var(--muted); }
+  .kpi .value { font-size: 34px; font-weight: 700; line-height: 1.15; margin: 4px 0 2px; color: var(--brand); font-variant-numeric: tabular-nums; }
+  .kpi .value.small { font-size: 26px; }
+  .kpi .hint { font-size: 12px; color: var(--muted); }
+  .kpi.live .value { color: var(--ok); }
+  .card.live { border-color: #cfe5d8; background: linear-gradient(180deg, #f7fdf9, #fff); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #eef2f7; vertical-align: top; }
+  th { color: var(--muted); font-weight: 500; font-size: 12px; }
+  tr:last-child td { border-bottom: none; }
+  .num { font-variant-numeric: tabular-nums; }
+  .bar { position: relative; height: 6px; background: #eef2f7; border-radius: 999px; overflow: hidden; min-width: 60px; }
+  .bar > i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--brand); border-radius: 999px; }
+  .bar.warn > i { background: var(--gold); }
+  .muted { color: var(--muted); }
+  .tiny { font-size: 12px; }
+  .chip { display: inline-block; font-size: 11.5px; padding: 1px 7px; border-radius: 999px; background: #eef4fb; color: var(--brand); }
+  .chip.err { background: #fdeceb; color: var(--bad); }
+  .chip.warn { background: #fdf3e3; color: var(--warn); }
+  .chip.ok { background: #eaf7f0; color: var(--ok); }
+  .row-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+  button {
+    border: 1px solid var(--line); background: var(--panel); color: var(--text);
+    border-radius: 9px; padding: 7px 12px; cursor: pointer; font: inherit; font-size: 13px;
+  }
+  button.primary { background: var(--brand); color: #fff; border-color: var(--brand); }
+  button:disabled { opacity: .55; cursor: not-allowed; }
+  .banner { display: none; margin: 0 0 14px; padding: 10px 14px; border-radius: 10px; font-size: 13px; }
+  .banner.show { display: block; }
+  .banner.ok { background: #eef9f2; border: 1px solid #cfe9d8; color: #14603b; }
+  .banner.bad { background: #fdf0ef; border: 1px solid #f3d3cf; color: #8d2019; }
+  .trend { width: 100%; height: 110px; display: block; }
+  .empty-note { color: var(--muted); font-size: 13px; padding: 6px 0; }
+  .authbox { display: none; margin-bottom: 14px; }
+  .authbox.show { display: block; }
+  .authbox input { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; font: inherit; }
+  @media (max-width: 900px) {
+    .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .two { grid-template-columns: minmax(0, 1fr); }
+  }
+  @media (max-width: 560px) {
+    header { padding: 10px 12px; gap: 8px; }
+    header h1 { font-size: 15px; }
+    main { padding: 12px 10px 40px; }
+    .kpi .value { font-size: 28px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <img src="/static/emblem-white.png" alt="郑州大学" />
+  <h1>制度与问答 · 运维台</h1>
+  <span id="pillOnline" class="pill">在线 --</span>
+  <span id="pillInflight" class="pill">进行中 --</span>
+  <span id="pillModel" class="pill">模型 --</span>
+  <span id="pillKb" class="pill">索引 --</span>
+  <span class="spacer"></span>
+  <a class="navlink" href="/dept">部门看板</a>
+  <a class="navlink" href="/">问答页</a>
+  <span id="clock" class="pill">--:--:--</span>
+</header>
+
+<main>
+  <div id="authbox" class="authbox card">
+    <h2>需要登录</h2>
+    <p class="muted tiny">运维台只对部门与管理员开放。请到 <a href="/login">登录页</a> 登录后刷新。</p>
+  </div>
+  <div id="banner" class="banner"></div>
+
+  <section class="grid kpis" style="margin-bottom:14px">
+    <div class="card kpi live">
+      <div class="label">此刻在线（5 分钟内有问答）</div>
+      <div class="value" id="kOnline">--</div>
+      <div class="hint" id="kOnlineHint">峰值 --</div>
+    </div>
+    <div class="card kpi">
+      <div class="label">正在生成</div>
+      <div class="value" id="kInflight">--</div>
+      <div class="hint">同时进行的流式回答数</div>
+    </div>
+    <div class="card kpi">
+      <div class="label">每分钟提问</div>
+      <div class="value" id="kQpm">--</div>
+      <div class="hint" id="kQpmHint">近 5 分钟 --</div>
+    </div>
+    <div class="card kpi">
+      <div class="label">运行时长</div>
+      <div class="value small" id="kUptime">--</div>
+      <div class="hint" id="kUptimeHint">启动于 --</div>
+    </div>
+  </section>
+
+  <section class="grid two" style="margin-bottom:14px">
+    <div class="card">
+      <h2>最近 60 分钟提问量 <span class="sub">蓝＝提问，金＝拒答</span></h2>
+      <svg class="trend" id="trend" viewBox="0 0 600 110" preserveAspectRatio="none"></svg>
+      <div class="muted tiny" id="trendNote">等待数据…</div>
+    </div>
+    <div class="card">
+      <h2>回答质量 <span class="sub" id="qualityWindow">近 7 天</span></h2>
+      <table>
+        <tbody>
+          <tr><td>应答率</td><td class="num" id="qAnswer">--</td><td class="muted tiny">没触发拒答的比例</td></tr>
+          <tr><td>引用覆盖率</td><td class="num" id="qCite">--</td><td class="muted tiny">作答里带出处</td></tr>
+          <tr><td>逐句支持率</td><td class="num" id="qClaims">--</td><td class="muted tiny" id="qClaimsNote">需要逐句校验样本</td></tr>
+          <tr><td>平均最优分</td><td class="num" id="qScore">--</td><td class="muted tiny">检索侧的相关度</td></tr>
+          <tr><td>耗时 P50 / P95</td><td class="num" id="qLat">--</td><td class="muted tiny" id="qLatNote">--</td></tr>
+        </tbody>
+      </table>
+      <div class="row-actions">
+        <button id="exportGaps" type="button">导出补料清单</button>
+        <button id="exportReport" type="button">导出周报（Excel）</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="grid two" style="margin-bottom:14px">
+    <div class="card">
+      <h2>拒答原因分布 <span class="sub">按窗口内次数</span></h2>
+      <div id="reasons"><div class="empty-note">窗口内没有拒答。</div></div>
+    </div>
+    <div class="card">
+      <h2>被拒问题 Top <span class="sub">可以直接补文件</span></h2>
+      <div id="refusedTop"><div class="empty-note">窗口内没有拒答。</div></div>
+    </div>
+  </section>
+
+  <section class="grid two" style="margin-bottom:14px">
+    <div class="card">
+      <h2>索引与模型 <span class="sub">维护人员需要的现状</span></h2>
+      <table>
+        <tbody>
+          <tr><td>文档 / 片段</td><td class="num" id="sDocs">--</td><td class="muted tiny" id="sChunks">--</td></tr>
+          <tr><td>向量集合</td><td class="num" id="sCollection">--</td><td class="muted tiny" id="sIndexSize">--</td></tr>
+          <tr><td>上次同步</td><td class="num" id="sLastSync">--</td><td class="muted tiny" id="sSyncState">--</td></tr>
+          <tr><td>回答模型</td><td class="num" id="sLlm">--</td><td class="muted tiny" id="sLlmMock">--</td></tr>
+          <tr><td>嵌入 / 重排</td><td class="num" id="sEmbd">--</td><td class="muted tiny" id="sRerank">--</td></tr>
+          <tr><td>日志 / 报告</td><td class="num" id="sLogs">--</td><td class="muted tiny" id="sReports">--</td></tr>
+        </tbody>
+      </table>
+      <div class="row-actions">
+        <button id="syncNow" type="button">立即同步</button>
+        <button id="rebuild" type="button">重建索引</button>
+        <button id="openLogs" type="button">看最近错误</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>离线评测 <span class="sub" id="evalFile">还没有评测报告</span></h2>
+      <table id="evalTable">
+        <tbody><tr><td class="muted">找到最近一份 reports/eval-*.md 后在这里显示。</td></tr></tbody>
+      </table>
+      <div class="muted tiny" style="margin-top:8px">离线评测是固定题集跑出来的，和上面线上日志的口径不同，别混着看。</div>
+    </div>
+  </section>
+
+  <section class="grid two">
+    <div class="card">
+      <h2>后台任务 <span class="sub" id="jobNote">--</span></h2>
+      <table>
+        <thead><tr><th>任务</th><th>状态</th><th>耗时</th><th>结果</th></tr></thead>
+        <tbody id="jobs"><tr><td colspan="4" class="muted">暂无任务</td></tr></tbody>
+      </table>
+    </div>
+    <div class="card">
+      <h2>最近错误 / 告警 <span class="sub" id="eventNote">--</span></h2>
+      <div id="events"><div class="empty-note">最近没有错误，挺好。</div></div>
+    </div>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const state = { timer: null, qualityDays: 7 };
+
+function esc(text) {
+  return String(text == null ? '' : text).replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[c]));
+}
+
+function banner(message, bad) {
+  const box = $('banner');
+  box.textContent = message;
+  box.className = 'banner show ' + (bad ? 'bad' : 'ok');
+  clearTimeout(banner._t);
+  banner._t = setTimeout(() => { box.className = 'banner'; }, 6000);
+}
+
+async function api(path, options) {
+  const resp = await fetch(path, Object.assign({ headers: { 'Accept': 'application/json' } }, options || {}));
+  if (resp.status === 401 || resp.status === 403) {
+    $('authbox').classList.add('show');
+    throw new Error('需要登录');
+  }
+  // 未登录时服务端会把浏览器的请求 302 到登录页，fetch 会自动跟随，
+  // 拿到的就是一段 HTML；这里按内容类型判断，别把登录页当成数据。
+  const kind = resp.headers.get('content-type') || '';
+  if (resp.redirected || kind.indexOf('application/json') < 0) {
+    $('authbox').classList.add('show');
+    throw new Error('需要登录');
+  }
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+  return resp.json();
+}
+
+function fmtDuration(seconds) {
+  if (!seconds || seconds < 0) return '--';
+  const d = Math.floor(seconds / 86400);
+  const h = Math.floor((seconds % 86400) / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  if (d) return `${d} 天 ${h} 小时`;
+  if (h) return `${h} 小时 ${m} 分`;
+  return `${m} 分`;
+}
+
+function pct(value, digits) {
+  if (typeof value !== 'number' || !isFinite(value)) return '--';
+  return (value * 100).toFixed(digits == null ? 1 : digits) + '%';
+}
+
+function renderTrend(series) {
+  const svg = $('trend');
+  const width = 600, height = 110, pad = 6;
+  const max = Math.max(1, ...series.map((p) => p.total));
+  const step = series.length > 1 ? (width - pad * 2) / (series.length - 1) : 0;
+  // 每个分钟先画一条浅色刻度，没数据时也能看出这是时间轴
+  const ticks = series.map((point, index) => (
+    `<rect x="${pad + index * step - 2.6}" y="${height - 16}" width="5.2" height="2" rx="1" fill="#e6edf6"></rect>`
+  )).join('');
+  const bars = series.map((point, index) => {
+    const x = pad + index * step;
+    const h = (point.total / max) * (height - 26);
+    const refusedH = point.total ? (point.refused / max) * (height - 26) : 0;
+    const y = height - 14 - h;
+    return `<rect x="${x - 2.6}" y="${y}" width="5.2" height="${Math.max(h, 0.6)}" rx="1.6" fill="#0d4c92" opacity="0.85"></rect>`
+      + (refusedH > 0 ? `<rect x="${x - 2.6}" y="${height - 14 - refusedH}" width="5.2" height="${refusedH}" rx="1.6" fill="#c8a45c"></rect>` : '');
+  }).join('');
+  const line = `<line x1="${pad}" y1="${height - 14}" x2="${width - pad}" y2="${height - 14}" stroke="#dfe7f1" stroke-width="1"></line>`;
+  const first = series.length ? series[0].minute : '';
+  const last = series.length ? series[series.length - 1].minute : '';
+  const labels = series.length
+    ? `<text x="${pad}" y="${height - 2}" font-size="9" fill="#8a97ab">${first}</text>`
+      + `<text x="${width - pad}" y="${height - 2}" font-size="9" fill="#8a97ab" text-anchor="end">${last}</text>`
+    : '';
+  svg.innerHTML = line + ticks + bars + labels;
+  const total = series.reduce((sum, p) => sum + p.total, 0);
+  $('trendNote').textContent = total
+    ? `近 60 分钟共 ${total} 次提问，其中拒答 ${series.reduce((s, p) => s + p.refused, 0)} 次`
+    : '近 60 分钟还没有提问。';
+}
+
+function renderLive(data) {
+  $('kOnline').textContent = data.online ?? 0;
+  $('kOnlineHint').textContent = `峰值 ${data.peak_online ?? 0} · 窗口 ${Math.round((data.window_seconds || 300) / 60)} 分钟`;
+  $('kInflight').textContent = data.inflight ?? 0;
+  $('kQpm').textContent = data.questions_per_minute ?? 0;
+  $('kQpmHint').textContent = `近 5 分钟 ${data.questions_window ?? 0} 次`;
+  $('kUptime').textContent = fmtDuration(data.uptime_seconds || 0);
+  if (data.uptime_seconds) {
+    const started = new Date(Date.now() - data.uptime_seconds * 1000);
+    $('kUptimeHint').textContent = `启动于 ${started.toLocaleString('zh-CN', { hour12: false, month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}`;
+  }
+  $('pillOnline').textContent = `在线 ${data.online ?? 0}`;
+  $('pillOnline').className = 'pill ' + ((data.online || 0) > 0 ? 'ok' : '');
+  $('pillInflight').textContent = `进行中 ${data.inflight ?? 0}`;
+  renderTrend(data.series || []);
+}
+
+function renderQuality(data) {
+  $('qualityWindow').textContent = `近 ${data.window_days} 天 · ${data.total} 次`;
+  $('qAnswer').textContent = data.total ? `${pct(data.answer_rate)}（${data.answered}/${data.total}）` : '--';
+  $('qCite').textContent = data.answered ? `${pct(data.citation_rate)}（${data.with_citation}/${data.answered}）` : '--';
+  if (data.claims_samples) {
+    $('qClaims').textContent = pct(data.avg_claims_support);
+    $('qClaimsNote').textContent = `${data.claims_samples} 个样本`;
+  } else {
+    $('qClaims').textContent = '—';
+    $('qClaimsNote').textContent = '这批日志里没有逐句校验样本';
+  }
+  $('qScore').textContent = data.avg_best_score ? data.avg_best_score.toFixed(3) : '--';
+  const lat = data.latency_ms || {};
+  const recent = data.latency_recent || {};
+  const head = recent.samples ? recent : lat;
+  $('qLat').textContent = head.samples ? `${Math.round(head.p50)} / ${Math.round(head.p95)} ms` : '--';
+  if (recent.samples && lat.samples > recent.samples) {
+    $('qLatNote').textContent =
+      `最近 ${recent.samples} 次；窗口内 ${lat.samples} 次全部 P50 ${Math.round(lat.p50)} / P95 ${Math.round(lat.p95)} ms`;
+  } else if (lat.samples) {
+    $('qLatNote').textContent = `${lat.samples} 次作答，最慢 ${Math.round(lat.max)} ms`;
+  } else {
+    $('qLatNote').textContent = '还没有耗时样本';
+  }
+
+  const reasons = $('reasons');
+  if (!data.reasons || !data.reasons.length) {
+    reasons.innerHTML = '<div class="empty-note">窗口内没有拒答。</div>';
+  } else {
+    reasons.innerHTML = '<table><tbody>' + data.reasons.map((row) => (
+      `<tr><td>${esc(row.label)}</td>`
+      + `<td class="num" style="width:64px">${row.count}</td>`
+      + `<td style="width:120px"><div class="bar warn"><i style="width:${Math.round((row.share || 0) * 100)}%"></i></div></td>`
+      + `<td class="num muted tiny" style="width:56px">${pct(row.share, 0)}</td></tr>`
+    )).join('') + '</tbody></table>';
+  }
+
+  const evalInfo = data.eval;
+  if (evalInfo) {
+    $('evalFile').textContent = `${evalInfo.file} · ${String(evalInfo.mtime).replace('T', ' ')}`;
+    const metrics = evalInfo.metrics || {};
+    const labels = {
+      decision_accuracy: '判断准确率',
+      induced_rate: '被诱导成功率',
+      doc_hit_rate: '文档命中率',
+      point_coverage: '要点覆盖率',
+      hit_at_1: 'Hit@1',
+    };
+    const rows = Object.keys(labels).filter((key) => metrics[key]).map((key) => (
+      `<tr><td>${labels[key]}</td><td class="num">${esc(metrics[key])}</td></tr>`
+    ));
+    $('evalTable').innerHTML = rows.length
+      ? '<tbody>' + rows.join('') + '</tbody>'
+      : '<tbody><tr><td class="muted">报告里没解析到指标，点开文件看具体内容。</td></tr></tbody>';
+  }
+}
+
+function renderTop(data) {
+  const box = $('refusedTop');
+  const rows = data.refused_questions || [];
+  if (!rows.length) {
+    box.innerHTML = '<div class="empty-note">窗口内没有拒答。</div>';
+    return;
+  }
+  box.innerHTML = '<table><tbody>' + rows.map((row) => (
+    `<tr><td>${esc(row.question)}</td><td class="num muted" style="width:56px">×${row.count}</td></tr>`
+  )).join('') + '</tbody></table>';
+}
+
+function statusChip(status) {
+  const map = { success: ['ok', '完成'], failed: ['err', '失败'], running: ['', '进行中'], busy: ['warn', '排队'] };
+  const [cls, label] = map[status] || ['', status || '未知'];
+  return `<span class="chip ${cls}">${esc(label)}</span>`;
+}
+
+function renderSystem(data) {
+  const index = data.index || {};
+  const models = data.models || {};
+  $('sDocs').textContent = `${index.documents ?? 0} 篇`;
+  $('sChunks').textContent = `manifest ${index.chunks ?? 0} · 向量 ${index.vector_chunks ?? 0} · BM25 ${index.bm25_chunks ?? 0}`;
+  $('sCollection').textContent = index.collection || '--';
+  $('sIndexSize').textContent = `索引占用 ${index.size || '--'}`;
+  $('sLastSync').textContent = index.last_sync ? String(index.last_sync).replace('T', ' ') : '从未同步';
+  $('sSyncState').textContent = index.failed_docs && index.failed_docs.length
+    ? `有 ${index.failed_docs.length} 个文件处理失败`
+    : '全部文件处理正常';
+  $('sLlm').textContent = models.llm || '--';
+  $('sLlmMock').textContent = models.llm_mock
+    ? (models.llm_note || 'mock 模式（演示用，不是真模型）')
+    : (models.llm_note || '真实模型');
+  $('sEmbd').textContent = `${models.embedder || '--'}（${models.embedder_device || '?'}）`;
+  $('sRerank').textContent = `${models.reranker || 'off'}（${models.reranker_device || '-'}）`;
+  $('sLogs').textContent = (data.disk || {}).logs || '--';
+  $('sReports').textContent = (data.disk || {}).reports || '--';
+
+  $('pillModel').textContent = models.llm_mock ? `模型 ${models.llm}（mock）` : `模型 ${models.llm}`;
+  $('pillModel').className = 'pill ' + (models.llm_mock ? 'warn' : 'ok');
+  $('pillKb').textContent = `索引 ${index.documents ?? 0} 篇 / ${index.vector_chunks ?? 0} 片段`;
+
+  const jobs = data.jobs || {};
+  const rows = [];
+  if (jobs.current) rows.push(jobs.current);
+  for (const job of (jobs.recent || [])) {
+    if (!rows.length || rows[0].job_id !== job.job_id) rows.push(job);
+  }
+  const body = $('jobs');
+  if (!rows.length) {
+    body.innerHTML = '<tr><td colspan="4" class="muted">暂无同步任务</td></tr>';
+  } else {
+    body.innerHTML = rows.slice(0, 6).map((job) => {
+      const report = job.report || {};
+      const result = job.status === 'failed'
+        ? (report.failed && report.failed.length ? `${report.failed.length} 个文件失败` : '见日志')
+        : job.status === 'success'
+          ? `新增 ${report.added ?? 0} · 更新 ${report.modified ?? 0} · 跳过旧版 ${report.superseded ?? 0}`
+          : '—';
+      return `<tr><td class="tiny">${esc(job.job_id || '')}${job.rebuild ? ' <span class="chip warn">重建</span>' : ''}</td>`
+        + `<td>${statusChip(job.status)}</td>`
+        + `<td class="num">${job.duration_ms ? Math.round(job.duration_ms / 1000) + ' s' : '—'}</td>`
+        + `<td class="tiny muted">${esc(result)}</td></tr>`;
+    }).join('');
+  }
+  const bg = data.background || {};
+  $('jobNote').textContent = `定时同步 ${bg.sync_scheduler ? bg.sync_interval_seconds + 's' : '关'} · 目录监听 ${bg.watcher ? '开' : '关'}`;
+}
+
+function renderEvents(data) {
+  const box = $('events');
+  $('eventNote').textContent = data.exists
+    ? `ERROR ${data.errors} · WARNING ${data.warnings}`
+    : '日志文件还没生成';
+  if (!data.events || !data.events.length) {
+    box.innerHTML = '<div class="empty-note">最近没有错误，挺好。</div>';
+    return;
+  }
+  box.innerHTML = '<table><tbody>' + data.events.map((item) => (
+    `<tr><td style="width:92px" class="tiny muted">${esc(String(item.ts).slice(5))}</td>`
+    + `<td style="width:64px"><span class="chip ${item.level === 'WARNING' ? 'warn' : 'err'}">${esc(item.level)}</span></td>`
+    + `<td class="tiny">${esc(item.message)}`
+    + (Number(item.count) > 1 ? ` <span class="muted">×${Number(item.count)}</span>` : '')
+    + '</td></tr>'
+  )).join('') + '</tbody></table>';
+}
+
+async function refreshLive() {
+  try {
+    const data = await api('/console/live');
+    $('authbox').classList.remove('show');
+    renderLive(data);
+    $('clock').textContent = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+  } catch (err) {
+    $('pillOnline').textContent = '连接异常';
+    $('pillOnline').className = 'pill bad';
+  }
+}
+
+async function refreshSystem() {
+  try { renderSystem(await api('/console/system')); } catch { /* 顶部已有提示 */ }
+}
+
+async function refreshQuality() {
+  try {
+    renderQuality(await api(`/console/quality?days=${state.qualityDays}`));
+    renderTop(await api(`/console/top?days=${state.qualityDays}&limit=6`));
+  } catch { /* 顶部已有提示 */ }
+}
+
+async function refreshEvents() {
+  try { renderEvents(await api('/console/events?limit=20')); } catch { /* 忽略 */ }
+}
+
+function downloadBlob(url, filename) {
+  return fetch(url, { headers: { 'Accept': 'text/markdown' } }).then(async (resp) => {
+    if (resp.status === 401 || resp.status === 403) { $('authbox').classList.add('show'); throw new Error('需要登录'); }
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const text = await resp.text();
+    const blob = new Blob([text], { type: 'text/markdown;charset=utf-8' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(link.href), 4000);
+  });
+}
+
+$('exportGaps').addEventListener('click', async () => {
+  const btn = $('exportGaps');
+  btn.disabled = true;
+  try {
+    await downloadBlob(`/dept/gaps/download?days=${state.qualityDays}`, `补料清单-${state.qualityDays}天.md`);
+    banner('补料清单已下载：按部门列出没答上来的问题。');
+  } catch (err) { banner('导出失败：' + err.message, true); }
+  finally { btn.disabled = false; }
+});
+
+$('exportReport').addEventListener('click', async () => {
+  const btn = $('exportReport');
+  btn.disabled = true;
+  try {
+    await downloadBlob(`/dept/report?days=${state.qualityDays}&download=1`, `周报-${state.qualityDays}天.xlsx`);
+    banner('周报已下载（Excel）。');
+  } catch (err) { banner('导出失败：' + err.message, true); }
+  finally { btn.disabled = false; }
+});
+
+async function runSync(rebuild) {
+  const btn = rebuild ? $('rebuild') : $('syncNow');
+  btn.disabled = true;
+  try {
+    const data = await api(`/console/sync?rebuild=${rebuild ? 'true' : 'false'}`, { method: 'POST' });
+    banner(data.status === 'busy'
+      ? (data.detail || '已有同步任务在跑，稍后自动补上。')
+      : `已提交${rebuild ? '重建' : '增量同步'}任务（${data.job_id || '-'}）。`);
+    setTimeout(refreshSystem, 1500);
+  } catch (err) { banner('提交失败：' + err.message, true); }
+  finally { btn.disabled = false; }
+}
+
+$('syncNow').addEventListener('click', () => runSync(false));
+$('rebuild').addEventListener('click', () => {
+  if (window.confirm('重建会清空现有向量与全文索引再全量导入，确定吗？')) runSync(true);
+});
+$('openLogs').addEventListener('click', () => {
+  $('events').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  refreshEvents();
+});
+
+refreshLive();
+refreshSystem();
+refreshQuality();
+refreshEvents();
+setInterval(refreshLive, 5000);
+setInterval(refreshSystem, 15000);
+setInterval(refreshQuality, 30000);
+setInterval(refreshEvents, 30000);
+</script>
+<script src="/static/auth-nav.js"></script>
+</body>
+</html>

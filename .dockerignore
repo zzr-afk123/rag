@@ -1,0 +1,28 @@
+.git
+.gitignore
+.venv
+venv
+__pycache__
+*.py[cod]
+.pytest_cache
+.coverage
+htmlcov
+.idea
+.vscode
+
+# 密钥与本地配置：绝不打进镜像（.env 里有 DEEPSEEK_API_KEY / SMTP 口令）
+.env
+.env.*
+!.env.example
+config/users.yaml
+config/*.local.yaml
+
+# 运行时产物：由容器挂载卷提供，不打进镜像
+data/index
+data/raw/uploads
+logs
+reports
+models
+.cache
+*.zip
+*.log

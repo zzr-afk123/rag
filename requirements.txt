@@ -1,0 +1,33 @@
+# ---- 运行期核心依赖（阶段 A-D 必需）----
+PyYAML>=6.0
+python-dotenv>=1.0
+tiktoken>=0.7            # token 近似计数（离线时自动降级为字符启发式）
+pypdf>=4.2               # PDF 文本提取
+python-docx>=1.1         # DOCX 解析
+openpyxl>=3.1            # XLSX 解析
+jieba>=0.42              # 中文分词（BM25 用）
+rank-bm25>=0.2.2         # BM25 实现
+
+# ---- 阶段 B：向量化与检索 ----
+# 装 sentence-transformers 会连带安装 torch（CPU 版约 200MB+），首次跑 bge-m3
+# 还要下载 ~2.2GB 权重。若只想跑 mock 模式/跑测试，可以不装这两个包。
+sentence-transformers>=3.0   # bge-m3 / bge-reranker-v2-m3
+chromadb>=1.0,<2             # 本地持久化向量库（API 与 0.4.x 不同，见 chroma_store.py 注释）
+
+# ---- 阶段 C/D：LLM 与接口 ----
+langchain-core>=0.3
+# 已在 langchain-openai 1.7.3 + langchain-core 1.7.0 上验证参数映射
+# （model/base_url/api_key 是 pydantic 别名，timeout → request_timeout）。
+# 若锁到 0.2.x，请先跑 tests/test_llm.py 核对 ChatOpenAI 的构造参数。
+langchain-openai>=1.0
+langchain-text-splitters>=0.3
+fastapi>=0.115
+uvicorn[standard]>=0.30
+pydantic>=2.8
+
+# ---- 阶段 E：自动更新 ----
+APScheduler>=3.10
+watchdog>=4.0
+
+# ---- 可选：终端二维码（服务器模式下手机扫码直接打开）----
+qrcode>=7.4

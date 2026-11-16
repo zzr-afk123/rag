@@ -1,0 +1,3 @@
+此文件已废弃。
+词典统一维护在 config/jieba_userdict.txt（由 config/settings.yaml 的
+retrieval.userdict_path 指向），避免出现两份词典互相漂移。

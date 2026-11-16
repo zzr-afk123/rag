@@ -1,0 +1,1050 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta http-equiv="Cache-Control" content="no-store, must-revalidate" />
+<meta http-equiv="Pragma" content="no-cache" />
+<link rel="icon" href="/static/emblem.png" type="image/png" />
+<link rel="apple-touch-icon" href="/static/emblem.png" />
+<link rel="manifest" href="/static/manifest.webmanifest" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="制度问答" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="format-detection" content="telephone=no" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#0d4c92" />
+<title>部门看板 · 学生咨询分布</title>
+<style>
+  :root {
+    --brand: #0d4c92; --brand-2: #1663b0; --brand-soft: #e8f0fa;
+    --gold: #c8a45c; --gold-soft: #fbf4e4;
+    --ink: #12233c; --muted: #5c6f88; --line: #dfe7f1;
+    --bg: #f2f6fb; --panel: #fff; --ok: #157a4b; --warn: #a86412; --danger: #b23b3b;
+    --radius: 14px; --shadow: 0 8px 24px rgba(13,76,146,.07);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 14.5px/1.65 "PingFang SC", "Microsoft YaHei", -apple-system, "Segoe UI", sans-serif;
+  }
+  a { color: var(--brand); text-decoration: none; }
+
+  header {
+    background: linear-gradient(120deg, #072e59, var(--brand) 62%, #17649f);
+    color: #fff; padding: 14px 18px;
+  }
+  .bar { max-width: 1080px; margin: 0 auto; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .bar img { width: 38px; height: 38px; display: block; }
+  .bar h1 { font-size: 17px; margin: 0; font-weight: 600; letter-spacing: .02em; }
+  .bar .sub { font-size: 11.5px; color: #c9dcf2; letter-spacing: .12em; }
+  .bar nav { margin-left: auto; display: flex; gap: 6px; }
+  .bar nav a { color: #dce8f7; font-size: 12.5px; padding: 6px 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,.18); }
+  .bar nav a:hover { background: rgba(255,255,255,.12); }
+
+  main { max-width: 1080px; margin: 0 auto; padding: 18px 16px 60px; }
+  .toolbar {
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 12px 14px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+    box-shadow: var(--shadow);
+  }
+  .seg { display: inline-flex; background: #eef3fa; border-radius: 999px; padding: 3px; }
+  .seg button {
+    border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 13px;
+    padding: 6px 14px; border-radius: 999px; cursor: pointer;
+  }
+  .seg button.on { background: var(--brand); color: #fff; }
+  .toolbar .spacer { flex: 1; }
+  button.ghost, button.primary {
+    border: 1px solid var(--line); background: #fff; color: var(--ink);
+    border-radius: 10px; padding: 8px 14px; font: inherit; font-size: 13px; cursor: pointer;
+  }
+  button.primary { background: var(--brand); border-color: var(--brand); color: #fff; }
+  button.primary:hover { background: var(--brand-2); }
+  button.mini { padding: 4px 10px; font-size: 12px; border-radius: 8px; vertical-align: middle; }
+  .card h2 button.mini { float: right; }
+  button:disabled { opacity: .55; cursor: not-allowed; }
+  .stamp { font-size: 12px; color: var(--muted); }
+
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 14px; }
+  .kpi {
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 14px 15px; box-shadow: var(--shadow);
+  }
+  .kpi .label { font-size: 12px; color: var(--muted); letter-spacing: .06em; }
+  .kpi .value { font-size: 26px; font-weight: 700; margin-top: 4px; letter-spacing: .01em; }
+  .kpi .value small { font-size: 13px; font-weight: 500; color: var(--muted); margin-left: 3px; }
+  .kpi .hint { font-size: 11.5px; color: var(--muted); margin-top: 3px; }
+  .kpi.accent { border-top: 3px solid var(--gold); }
+
+  .grid { display: grid; grid-template-columns: 1.25fr .75fr; gap: 14px; margin-top: 14px; }
+  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+  .card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 16px; box-shadow: var(--shadow);
+  }
+  .card h2 { font-size: 14px; margin: 0 0 4px; letter-spacing: .02em; }
+  .card .desc { font-size: 11.5px; color: var(--muted); margin: 0 0 12px; }
+
+  /* 部门条形 */
+  .dept-row {
+    display: grid; grid-template-columns: 132px 1fr 82px; gap: 10px; align-items: center;
+    padding: 7px 6px; border-radius: 9px; cursor: pointer;
+  }
+  .dept-row:hover { background: var(--brand-soft); }
+  .dept-row.active { background: #eaf1fb; box-shadow: inset 3px 0 0 var(--brand); }
+  .dept-row .name { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .track { background: #eef3fa; height: 9px; border-radius: 999px; overflow: hidden; }
+  .fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--brand), #4c9be0); }
+  .dept-row .num { text-align: right; font-size: 12.5px; color: var(--muted); }
+  .dept-row .num b { color: var(--ink); font-size: 13.5px; }
+
+  /* 趋势 */
+  .trend { width: 100%; height: 132px; }
+  .trend text { font-size: 9px; fill: var(--muted); }
+  .legend { display: flex; gap: 14px; font-size: 11.5px; color: var(--muted); margin-top: 6px; }
+  .legend i { width: 9px; height: 9px; border-radius: 2px; display: inline-block; margin-right: 5px; }
+  .dot-brand { background: var(--brand); }
+  .dot-warn { background: #d9a441; }
+
+  /* 列表 */
+  .qlist { list-style: none; margin: 0; padding: 0; }
+  .qlist li {
+    display: flex; gap: 10px; align-items: baseline; padding: 9px 2px; border-bottom: 1px dashed var(--line);
+  }
+  .qlist li:last-child { border-bottom: 0; }
+  .qlist .n {
+    flex: none; min-width: 22px; height: 22px; border-radius: 6px; background: var(--brand-soft);
+    color: var(--brand); font-size: 11.5px; display: inline-flex; align-items: center; justify-content: center;
+  }
+  .qlist .text { flex: 1; font-size: 13.2px; word-break: break-word; }
+  .qlist .count { flex: none; font-size: 12px; color: var(--muted); }
+  .tag {
+    display: inline-block; font-size: 10.5px; padding: 1px 7px; border-radius: 999px;
+    background: var(--gold-soft); color: #8a6a24; margin-left: 6px; vertical-align: 1px;
+  }
+  .tag.bad { background: #fdecec; color: var(--danger); }
+
+  .empty { color: var(--muted); font-size: 13px; padding: 14px 2px; }
+  .detail {
+    margin-top: 14px; border: 1px dashed #c9d8ea; border-radius: 12px; padding: 12px 14px;
+    background: #f8fbff;
+  }
+  .detail h3 { margin: 0 0 6px; font-size: 13.5px; }
+  .detail .contact { font-size: 12.5px; color: var(--muted); }
+  .detail .contact b { color: var(--ink); }
+  .detail .contact-grid {
+    display: grid; grid-template-columns: 56px minmax(0, 1fr);
+    gap: 3px 8px; font-size: 12.5px; color: #47597a; margin-bottom: 6px;
+  }
+  .detail .contact-grid .k { color: #8a97ab; font-size: 11.8px; white-space: nowrap; }
+  .detail .contact-grid .v { min-width: 0; word-break: break-word; }
+
+  .banner {
+    margin: 0 0 14px; padding: 10px 13px; border-radius: 12px; font-size: 12.5px;
+    background: var(--gold-soft); color: #7d6120; border: 1px solid #f0e2c0;
+  }
+  .banner.bad { background: #fdecec; border-color: #f6d5d5; color: var(--danger); }
+  .notes { margin-top: 16px; font-size: 11.5px; color: var(--muted); line-height: 1.8; }
+  .notes code { background: #eef3fa; padding: 1px 5px; border-radius: 4px; }
+
+  /* 令牌 */
+  .authbox { display: none; gap: 8px; margin: 0 0 14px; }
+  .authbox input {
+    flex: 1; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; font: inherit;
+  }
+  /* 上传入库 */
+  .upload { margin-top: 14px; }
+  .upload-head { display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+  .upload-head h2 { margin: 0 0 2px; }
+  .upload-head .desc { margin: 0; }
+  .upload-head .actions { margin-left: auto; display: flex; gap: 8px; }
+  .dropzone {
+    margin-top: 12px; padding: 16px; text-align: center; cursor: pointer;
+    border: 1.5px dashed #b9cde6; border-radius: 12px; background: #f7fbff;
+    color: var(--muted); transition: border-color .15s, background .15s, color .15s;
+  }
+  .dropzone:hover, .dropzone:focus-visible {
+    border-color: var(--brand); background: var(--brand-soft); outline: none;
+  }
+  .dropzone.over { border-color: var(--brand); background: #e2eefb; color: var(--brand); }
+  .dropzone.busy { opacity: .7; cursor: progress; }
+  .dropzone .dz-icon { display: block; font-size: 20px; line-height: 1.1; color: var(--brand); }
+  .dropzone .dz-text { font-size: 13px; }
+  .dropzone .dz-text b { color: var(--ink); }
+  .upload-list { list-style: none; margin: 10px 0 0; padding: 0; }
+  .upload-list li {
+    display: flex; gap: 10px; align-items: center; padding: 7px 2px;
+    border-bottom: 1px dashed var(--line); font-size: 12.5px;
+  }
+  .upload-list li:last-child { border-bottom: 0; }
+  .upload-list .uname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .upload-list .usize { flex: none; color: var(--muted); font-size: 11.5px; }
+  .upload-list .ustate {
+    flex: none; font-size: 11.5px; padding: 1px 8px; border-radius: 999px;
+    background: var(--brand-soft); color: var(--brand); white-space: nowrap;
+  }
+  .upload-list .ustate.ok { background: #e7f6ee; color: var(--ok); }
+  .upload-list .ustate.warn { background: var(--gold-soft); color: var(--warn); }
+  .upload-list .ustate.bad { background: #fdecec; color: var(--danger); }
+  .upload-list .ustate.busy { background: #eef3fa; color: var(--muted); }
+  .upload-list .link {
+    flex: none; border: 0; background: transparent; color: var(--brand);
+    font: inherit; font-size: 11.5px; cursor: pointer; text-decoration: underline; padding: 0;
+  }
+
+  @media (max-width: 560px) {
+    .dept-row { grid-template-columns: 104px 1fr 64px; }
+    .kpi .value { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <img src="/static/emblem-white.png" alt="郑州大学" />
+    <div>
+      <h1 id="school">郑州大学 · 部门看板</h1>
+      <div class="sub">学生咨询分布 / 知识库缺口 / 周报投递</div>
+    </div>
+    <nav>
+      <a href="/">问答页</a>
+      <a href="/console">运维台</a>
+      <span id="userBox" hidden></span>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div id="banner" class="banner" hidden></div>
+  <div class="authbox" id="authbox">
+    <input id="tokenInput" type="password" placeholder="部门看板需要访问令牌（dept_console.token）" />
+    <button class="primary" id="tokenBtn" type="button">进入</button>
+  </div>
+
+  <div class="toolbar">
+    <div class="seg" id="rangeSeg">
+      <button type="button" data-days="7">近 7 天</button>
+      <button type="button" data-days="30" class="on">近 30 天</button>
+      <button type="button" data-days="90">近 90 天</button>
+    </div>
+    <button class="ghost" id="refreshBtn" type="button">刷新</button>
+    <span class="spacer"></span>
+    <span class="stamp" id="stamp"></span>
+    <button class="ghost" id="exportBtn" type="button">下载周报（Excel）</button>
+    <button class="primary" id="sendBtn" type="button">立即投递</button>
+  </div>
+
+  <section class="card upload" id="uploadCard">
+    <div class="upload-head">
+      <div>
+        <h2>上传制度文件</h2>
+        <p class="desc">拖进来即入库：支持 <span id="uploadTypes">PDF / Word / Markdown / TXT / Excel</span>，
+          单个文件 ≤ <span id="uploadMaxMb">20</span> MB，可一次拖多个。</p>
+      </div>
+      <div class="actions">
+        <button class="ghost" id="syncBtn" type="button">立即同步</button>
+      </div>
+    </div>
+    <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="拖入文件，或按回车选择文件">
+      <span class="dz-icon" aria-hidden="true">⇪</span>
+      <span class="dz-text"><b>把文件拖到这里</b>，或点击选择（可多选）</span>
+      <input id="fileInput" type="file" multiple hidden accept=".pdf,.docx,.md,.txt,.xlsx" />
+    </div>
+    <ul class="upload-list" id="uploadList" aria-live="polite"></ul>
+  </section>
+
+  <div class="kpis">
+    <div class="kpi accent">
+      <div class="label">咨询总量</div>
+      <div class="value" id="kTotal">-</div>
+      <div class="hint" id="kTotalHint">窗口内提问次数</div>
+    </div>
+    <div class="kpi">
+      <div class="label">未能作答</div>
+      <div class="value" id="kRefused">-</div>
+      <div class="hint" id="kRefusedHint">知识库无依据</div>
+    </div>
+    <div class="kpi">
+      <div class="label">可识别部门</div>
+      <div class="value" id="kMatched">-</div>
+      <div class="hint">按关键词归属</div>
+    </div>
+    <div class="kpi">
+      <div class="label">去重问题</div>
+      <div class="value" id="kUnique">-</div>
+      <div class="hint" id="kRepeat">重复提问占比 -</div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <section class="card">
+      <h2>咨询量趋势</h2>
+      <p class="desc">按天统计；橙色为未答上的部分。</p>
+      <svg class="trend" id="trend" viewBox="0 0 620 132" preserveAspectRatio="none"></svg>
+      <div class="legend">
+        <span><i class="dot-brand"></i>咨询量</span>
+        <span><i class="dot-warn"></i>未答上</span>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>部门分布</h2>
+      <p class="desc">点一行看该部门被问的具体问题。</p>
+      <div id="deptList"></div>
+      <div class="detail" id="detail" hidden></div>
+    </section>
+  </div>
+
+  <div class="grid">
+    <section class="card">
+      <h2>高频问题</h2>
+      <p class="desc">去掉标点后字面相同的问题合并计数。</p>
+      <ul class="qlist" id="topQuestions"></ul>
+    </section>
+    <section class="card">
+      <h2>需要补料的问题 <button class="ghost mini" id="gapsBtn" type="button">导出补料清单</button></h2>
+      <p class="desc">被拒答的提问：多半是知识库缺文件，或问得太笼统。导出后按部门分派给对应科室补文件。</p>
+      <ul class="qlist" id="refusedQuestions"></ul>
+    </section>
+  </div>
+
+  <div class="notes" id="notes">
+    <div>· 只统计"问题 + 是否作答 + 部门归属"，不保存回答正文与个人信息。</div>
+    <div>· 周报默认只落盘预览（<code>logs/outbox/*.eml</code>），确认后把 <code>report.dry_run</code> 改为 false 才会真发。</div>
+    <div id="reportState"></div>
+  </div>
+</main>
+
+<script>
+(function () {
+  'use strict';
+
+  var state = {
+    days: 30,
+    token: sessionStorage.getItem('dept_token') || new URLSearchParams(location.search).get('token') || '',
+    data: null,
+    active: ''
+  };
+  if (new URLSearchParams(location.search).get('token')) {
+    sessionStorage.setItem('dept_token', state.token);
+  }
+
+  var $ = function (id) { return document.getElementById(id); };
+  var banner = $('banner');
+  var authbox = $('authbox');
+
+  function headers() {
+    var h = { 'Content-Type': 'application/json' };
+    if (state.token) h['X-Access-Token'] = state.token;
+    return h;
+  }
+
+  function showBanner(text, bad) {
+    if (!text) { banner.hidden = true; return; }
+    banner.hidden = false;
+    banner.textContent = text;
+    banner.className = 'banner' + (bad ? ' bad' : '');
+  }
+
+  function pct(value) { return (Number(value || 0) * 100).toFixed(0) + '%'; }
+
+  function num(value) { return Number(value || 0).toLocaleString('zh-CN'); }
+
+  /* ---------- 渲染 ---------- */
+  function renderKpis(data) {
+    $('kTotal').textContent = num(data.total);
+    $('kTotalHint').textContent = '窗口 ' + data.window_days + ' 天 · 平均响应 ' + Math.round(data.avg_latency_ms) + 'ms';
+    $('kRefused').textContent = num(data.refused);
+    $('kRefusedHint').textContent = '拒答率 ' + pct(data.refusal_rate);
+    $('kMatched').textContent = pct(data.matched_rate);
+    $('kUnique').textContent = num(data.unique_questions);
+    $('kRepeat').textContent = '重复提问占比 ' + pct(data.repeat_rate);
+    $('stamp').textContent = '统计至 ' + (data.until || '').replace('T', ' ');
+  }
+
+  function renderTrend(data) {
+    var svg = $('trend');
+    var ns = 'http://www.w3.org/2000/svg';
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    var series = data.daily || [];
+    if (!series.length) return;
+
+    var W = 620, H = 132, padL = 26, padB = 18, padT = 8;
+    var max = Math.max(1, Math.max.apply(null, series.map(function (d) { return d.total; })));
+    var stepX = series.length > 1 ? (W - padL - 8) / (series.length - 1) : 0;
+
+    function point(i, value) {
+      var x = padL + i * stepX;
+      var y = H - padB - (value / max) * (H - padB - padT);
+      return [x, y];
+    }
+
+    // 网格
+    [0, 0.5, 1].forEach(function (ratio) {
+      var y = H - padB - ratio * (H - padB - padT);
+      var line = document.createElementNS(ns, 'line');
+      line.setAttribute('x1', padL); line.setAttribute('x2', W - 4);
+      line.setAttribute('y1', y); line.setAttribute('y2', y);
+      line.setAttribute('stroke', '#e9eff7'); line.setAttribute('stroke-width', '1');
+      svg.appendChild(line);
+      var label = document.createElementNS(ns, 'text');
+      label.setAttribute('x', 2); label.setAttribute('y', y + 3);
+      label.textContent = Math.round(max * ratio);
+      svg.appendChild(label);
+    });
+
+    function polyline(key, color) {
+      var d = series.map(function (item, i) {
+        var p = point(i, item[key]);
+        return (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1);
+      }).join(' ');
+      var path = document.createElementNS(ns, 'path');
+      path.setAttribute('d', d);
+      path.setAttribute('fill', 'none');
+      path.setAttribute('stroke', color);
+      path.setAttribute('stroke-width', key === 'total' ? '2.2' : '1.4');
+      path.setAttribute('stroke-linejoin', 'round');
+      if (key !== 'total') path.setAttribute('stroke-dasharray', '4 3');
+      svg.appendChild(path);
+    }
+
+    polyline('total', '#0d4c92');
+    polyline('refused', '#d9a441');
+
+    // 首尾日期
+    ['first', 'last'].forEach(function (which, index) {
+      var label = document.createElementNS(ns, 'text');
+      var item = index === 0 ? series[0] : series[series.length - 1];
+      label.setAttribute('x', index === 0 ? padL : W - 62);
+      label.setAttribute('y', H - 4);
+      label.textContent = (item.date || '').slice(5);
+      svg.appendChild(label);
+    });
+  }
+
+  function renderDepartments(data) {
+    var box = $('deptList');
+    box.innerHTML = '';
+    var rows = data.departments || [];
+    if (!rows.length) {
+      box.innerHTML = '<div class="empty">窗口内没有可识别部门的咨询。</div>';
+      return;
+    }
+    var max = Math.max.apply(null, rows.map(function (row) { return row.count; }));
+    rows.forEach(function (row) {
+      var line = document.createElement('div');
+      line.className = 'dept-row' + (state.active === row.id ? ' active' : '');
+      line.dataset.id = row.id;
+
+      var name = document.createElement('div');
+      name.className = 'name';
+      name.textContent = row.name;
+      line.appendChild(name);
+
+      var track = document.createElement('div');
+      track.className = 'track';
+      var fill = document.createElement('div');
+      fill.className = 'fill';
+      fill.style.width = Math.max(4, (row.count / max) * 100) + '%';
+      track.appendChild(fill);
+      line.appendChild(track);
+
+      var numEl = document.createElement('div');
+      numEl.className = 'num';
+      numEl.innerHTML = '<b>' + row.count + '</b> · ' + pct(row.share);
+      line.appendChild(numEl);
+
+      line.addEventListener('click', function () { openDetail(row.id); });
+      box.appendChild(line);
+    });
+  }
+
+  async function openDetail(deptId) {
+    var detail = $('detail');
+    // 再点一次同一个部门 = 收起
+    if (state.active === deptId && !detail.hidden) {
+      state.active = '';
+      detail.hidden = true;
+      detail.innerHTML = '';
+      renderDepartments(state.data || {});
+      return;
+    }
+    state.active = deptId;
+    renderDepartments(state.data || {});
+    detail.hidden = false;
+    detail.innerHTML = '<div class="empty">加载中…</div>';
+    try {
+      var resp = await fetch('/dept/department/' + encodeURIComponent(deptId) + '?days=' + state.days, { headers: headers() });
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      var payload = await resp.json();
+      var summary = payload.summary || {};
+      var department = payload.department || {};
+      var html = '<h3>' + escapeHtml(department.name || deptId) + '</h3>';
+      var facts = [];
+      if (department.phone) facts.push(['电话', department.phone]);
+      if (department.address) facts.push(['地点', department.address]);
+      if (department.hours) facts.push(['时间', department.hours]);
+      if (facts.length) {
+        html += '<div class="contact-grid">';
+        facts.forEach(function (pair) {
+          html += '<span class="k">' + escapeHtml(pair[0]) + '</span><span class="v">'
+            + escapeHtml(pair[1]) + '</span>';
+        });
+        html += '</div>';
+      }
+      html += '<div class="contact">窗口内 ' + (summary.count || 0) + ' 条，其中未答上 '
+        + (summary.refused || 0) + ' 条（' + pct(summary.refusal_rate) + '）</div>';
+      if (summary.top_questions && summary.top_questions.length) {
+        html += '<ul class="qlist">';
+        summary.top_questions.forEach(function (item) {
+          html += '<li><span class="n">' + item.count + '</span><span class="text">'
+            + escapeHtml(item.question) + (item.refused ? '<span class="tag bad">曾未答上</span>' : '') + '</span></li>';
+        });
+        html += '</ul>';
+      }
+      detail.innerHTML = html;
+    } catch (err) {
+      detail.innerHTML = '<div class="empty">加载失败：' + escapeHtml(err.message) + '</div>';
+    }
+  }
+
+  function escapeHtml(text) {
+    return String(text == null ? '' : text).replace(/[&<>"']/g, function (ch) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch];
+    });
+  }
+
+  function deptName(id) {
+    var rows = (state.data && state.data.departments) || [];
+    for (var i = 0; i < rows.length; i++) if (rows[i].id === id) return rows[i].name;
+    return id;
+  }
+
+  function renderQuestions(data) {
+    var top = $('topQuestions');
+    top.innerHTML = '';
+    (data.top_questions || []).forEach(function (item) {
+      var li = document.createElement('li');
+      var n = document.createElement('span'); n.className = 'n'; n.textContent = item.count;
+      var text = document.createElement('span'); text.className = 'text';
+      text.textContent = item.question;
+      (item.departments || []).slice(0, 2).forEach(function (id) {
+        var tag = document.createElement('span'); tag.className = 'tag'; tag.textContent = deptName(id);
+        text.appendChild(tag);
+      });
+      var count = document.createElement('span'); count.className = 'count';
+      count.textContent = item.refused ? '曾未答上' : '';
+      li.appendChild(n); li.appendChild(text); li.appendChild(count);
+      top.appendChild(li);
+    });
+    if (!top.children.length) top.innerHTML = '<li class="empty">暂无数据。</li>';
+
+    var refused = $('refusedQuestions');
+    refused.innerHTML = '';
+    (data.refused_questions || []).forEach(function (item) {
+      var li = document.createElement('li');
+      var n = document.createElement('span'); n.className = 'n'; n.textContent = item.count;
+      var text = document.createElement('span'); text.className = 'text'; text.textContent = item.question;
+      li.appendChild(n); li.appendChild(text);
+      refused.appendChild(li);
+    });
+    if (!refused.children.length) refused.innerHTML = '<li class="empty">窗口内没有被拒答的问题。</li>';
+  }
+
+  function renderReport(data) {
+    var report = data.report || {};
+    var el = $('reportState');
+    if (!report || !report.enabled) {
+      el.textContent = '· 周报定时投递未启用（report.enabled=false）。可用右上角「立即投递」手动预览。';
+      return;
+    }
+    var next = report.next_run_at ? new Date(report.next_run_at).toLocaleString('zh-CN') : '待定';
+    el.textContent = '· 周报：每' + ({ mon: '周一', tue: '周二', wed: '周三', thu: '周四', fri: '周五', sat: '周六', sun: '周日' }[report.weekday] || '周一')
+      + ' ' + report.time + ' 投递（' + (report.dry_run ? '仅落盘预览' : '真实发送') + '），下次 ' + next;
+  }
+
+  function renderBrand(data) {
+    if (data.brand && data.brand.school_name) {
+      $('school').textContent = data.brand.school_name + ' · 部门看板';
+      document.title = data.brand.school_name + ' · 部门看板';
+    }
+  }
+
+  function render(data) {
+    state.data = data;
+    renderBrand(data);
+    renderUploadInfo(data);
+    renderKpis(data);
+    renderTrend(data);
+    renderDepartments(data);
+    renderQuestions(data);
+    renderReport(data);
+
+    var hints = [];
+    if (data.demo) hints.push('当前包含 ' + data.demo + ' 条演示数据（scripts/seed_demo_questions.py 生成），上线前用 --clear 清掉。');
+    if (data.unmatched) hints.push(data.unmatched + ' 条提问没能识别到部门（关键词未命中），可补充 departments.yaml 的同义词。');
+    if (data.total === 0) hints.push('窗口内没有问答记录：先在问答页问几个问题，或检查 logs/qa.jsonl 是否存在。');
+    showBanner(hints.join(' '), false);
+  }
+
+  /* ---------- 上传入库 ---------- */
+  var UPLOAD_TYPES = ['.pdf', '.docx', '.md', '.txt', '.xlsx'];
+  var uploadState = { busy: false, lastUploadAt: 0 };
+
+  function sleep(ms) { return new Promise(function (resolve) { setTimeout(resolve, ms); }); }
+
+  function fmtSize(bytes) {
+    var n = Number(bytes || 0);
+    if (n >= 1024 * 1024) return (n / 1024 / 1024).toFixed(1) + ' MB';
+    if (n >= 1024) return Math.round(n / 1024) + ' KB';
+    return n + ' B';
+  }
+
+  function uploadHeaders() {
+    var h = {};
+    if (state.token) h['X-Access-Token'] = state.token;
+    return h;
+  }
+
+  function renderUploadInfo(data) {
+    var info = (data && data.upload) || {};
+    state.uploadMaxMb = Number(info.max_mb || 20);
+    state.uploadTypes = (info.types && info.types.length) ? info.types : UPLOAD_TYPES.slice();
+    $('uploadMaxMb').textContent = String(state.uploadMaxMb);
+    $('uploadTypes').textContent = state.uploadTypes.join(' / ');
+    $('fileInput').setAttribute('accept', state.uploadTypes.join(','));
+  }
+
+  function uploadRow(name, size) {
+    var list = $('uploadList');
+    var li = document.createElement('li');
+    var title = document.createElement('span');
+    title.className = 'uname';
+    title.textContent = name;
+    title.title = name;
+    var meta = document.createElement('span');
+    meta.className = 'usize';
+    meta.textContent = fmtSize(size);
+    var badge = document.createElement('span');
+    badge.className = 'ustate busy';
+    badge.textContent = '等待上传';
+    li.appendChild(title);
+    li.appendChild(meta);
+    li.appendChild(badge);
+    list.insertBefore(li, list.firstChild);
+    return {
+      node: li,
+      set: function (kind, text) { badge.className = 'ustate ' + kind; badge.textContent = text; },
+      offerOverwrite: function (file) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'link';
+        btn.textContent = '覆盖';
+        btn.addEventListener('click', async function () {
+          btn.disabled = true;
+          btn.remove();
+          if (await uploadOne(file, true)) await ensureAfterUpload();
+        });
+        li.appendChild(btn);
+      }
+    };
+  }
+
+  async function uploadOne(file, overwrite) {
+    var row = uploadRow(file.name, file.size);
+    row.set('busy', overwrite ? '覆盖中…' : '上传中…');
+    var url = '/dept/upload?name=' + encodeURIComponent(file.name) + (overwrite ? '&overwrite=true' : '');
+    var resp;
+    try {
+      resp = await fetch(url, { method: 'POST', headers: uploadHeaders(), body: file });
+    } catch (err) {
+      row.set('bad', '网络错误：' + err.message);
+      return false;
+    }
+    var payload = {};
+    try { payload = await resp.json(); } catch (err) { payload = {}; }
+    if (resp.status === 401) {
+      authbox.style.display = 'flex';
+      row.set('bad', '需要登录/令牌');
+      return false;
+    }
+    if (resp.status === 409) {
+      row.set('warn', '同名文件已存在');
+      row.offerOverwrite(file);
+      return false;
+    }
+    if (!resp.ok) {
+      row.set('bad', payload && payload.detail ? String(payload.detail) : ('HTTP ' + resp.status));
+      return false;
+    }
+    row.set('ok', '已上传 ' + fmtSize(file.size) + '，等待入库');
+    uploadState.lastUploadAt = Date.now();
+    return true;
+  }
+
+  async function postSync() {
+    try {
+      var resp = await fetch('/dept/sync', { method: 'POST', headers: uploadHeaders() });
+      if (resp.status === 401) { authbox.style.display = 'flex'; return null; }
+      if (!resp.ok) return null;
+      return await resp.json();
+    } catch (err) {
+      return null;
+    }
+  }
+
+  async function pollJob(jobId) {
+    // 同步可能跑几十秒：1s 一轮，最多等 4 分钟；期间保持页面可操作
+    for (var i = 0; i < 240; i += 1) {
+      await sleep(1000);
+      var resp;
+      try {
+        resp = await fetch('/dept/sync/' + encodeURIComponent(jobId), { headers: uploadHeaders() });
+      } catch (err) {
+        return null;
+      }
+      if (resp.status === 404) return null;
+      if (!resp.ok) continue;
+      var data = await resp.json();
+      var job = data.job;
+      if (!job) return null;
+      if (job.status !== 'pending' && job.status !== 'running') return data;
+    }
+    return null;
+  }
+
+  function showSyncResult(data) {
+    var job = (data && data.job) || {};
+    var report = job.report || {};
+    var failed = report.failed || [];
+    if (job.status === 'failed' && !report.indexed_docs) {
+      showBanner('入库失败：' + (job.error || '未知错误'), true);
+      return;
+    }
+    var parts = [];
+    if (report.added) parts.push('新增 ' + report.added + ' 篇');
+    if (report.modified) parts.push('更新 ' + report.modified + ' 篇');
+    if (report.chunks_written) parts.push('写入 ' + report.chunks_written + ' 个片段');
+    if (!parts.length) parts.push('没有检测到新文件（可能已经入库过）');
+    if (failed.length) {
+      var reasons = failed.slice(0, 2).map(function (item) {
+        return (item.file || '?') + '：' + (item.error || item.stage || '失败');
+      }).join('；');
+      showBanner('已处理，但有 ' + failed.length + ' 个文件失败 —— ' + reasons + '（详见 logs/）', true);
+      return;
+    }
+    var kb = (data && data.kb) || {};
+    var tail = kb.documents ? '，知识库现有 ' + kb.documents + ' 篇 / ' + kb.chunks + ' 个片段' : '';
+    showBanner('已入库：' + parts.join('，') + tail + '。', false);
+  }
+
+  async function ensureIndexed() {
+    showBanner('文件已保存，正在入库…', false);
+    var first = await postSync();
+    if (!first || !first.job_id) {
+      showBanner('文件已保存，但没能触发同步；请点「立即同步」或等下一轮自动同步（默认 60s）。', true);
+      return;
+    }
+    var result = await pollJob(first.job_id);
+    // 若这次同步在我们最后一次上传之前就开始，它可能没扫到新文件：结束后补一次
+    if (result && Number((result.job || {}).started_at || 0) * 1000 < uploadState.lastUploadAt) {
+      var again = await postSync();
+      if (again && again.job_id && again.job_id !== first.job_id) {
+        result = (await pollJob(again.job_id)) || result;
+      }
+    }
+    if (result) {
+      await load();
+      showSyncResult(result);
+    } else {
+      showBanner('文件已上传，但没等到同步结束；请稍后点「立即同步」查看结果。', true);
+    }
+  }
+
+  async function handleFiles(fileList) {
+    if (uploadState.busy) { showBanner('上一批文件还在入库，请稍等。', false); return; }
+    var files = Array.prototype.slice.call(fileList || []);
+    if (!files.length) return;
+
+    var maxMb = Number(state.uploadMaxMb || 20);
+    var allowed = state.uploadTypes || UPLOAD_TYPES;
+    var queue = [];
+    files.forEach(function (file) {
+      var dot = file.name.lastIndexOf('.');
+      var ext = dot >= 0 ? file.name.slice(dot).toLowerCase() : '';
+      if (allowed.indexOf(ext) < 0) {
+        uploadRow(file.name, file.size).set('bad', '不支持的类型');
+        return;
+      }
+      if (file.size <= 0) {
+        uploadRow(file.name, file.size).set('bad', '空文件');
+        return;
+      }
+      if (maxMb > 0 && file.size > maxMb * 1024 * 1024) {
+        uploadRow(file.name, file.size).set('bad', '超过 ' + maxMb + ' MB');
+        return;
+      }
+      queue.push(file);
+    });
+    if (!queue.length) return;
+
+    uploadState.busy = true;
+    $('dropzone').classList.add('busy');
+    try {
+      var uploaded = 0;
+      for (var i = 0; i < queue.length; i += 1) {
+        if (await uploadOne(queue[i], false)) uploaded += 1;
+      }
+      if (uploaded > 0) await ensureIndexed();
+    } finally {
+      uploadState.busy = false;
+      $('dropzone').classList.remove('busy');
+      loadUploads();
+    }
+  }
+
+  // 「覆盖」是单独一次上传，走同一个入库流程，否则要等下一轮自动同步
+  async function ensureAfterUpload() {
+    if (uploadState.busy) return;
+    uploadState.busy = true;
+    $('dropzone').classList.add('busy');
+    try {
+      await ensureIndexed();
+    } finally {
+      uploadState.busy = false;
+      $('dropzone').classList.remove('busy');
+      loadUploads();
+    }
+  }
+
+  async function loadUploads() {
+    var box = $('uploadList');
+    if (!box) return;
+    var resp;
+    try {
+      resp = await fetch('/dept/uploads?limit=8', { headers: uploadHeaders() });
+    } catch (err) {
+      return;
+    }
+    if (resp.status === 401 || !resp.ok) return;
+    var data = await resp.json();
+    var files = data.files || [];
+    if (!files.length) return;
+    box.innerHTML = '';
+    files.forEach(function (file) {
+      var li = document.createElement('li');
+      var name = document.createElement('span');
+      name.className = 'uname';
+      name.textContent = file.name;
+      name.title = file.name;
+      var size = document.createElement('span');
+      size.className = 'usize';
+      size.textContent = fmtSize(file.size);
+      var badge = document.createElement('span');
+      badge.className = 'ustate ' + (file.indexed ? 'ok' : 'warn');
+      badge.textContent = file.indexed ? '已入库 · ' + file.chunks + ' 片段' : '待入库';
+      li.appendChild(name);
+      li.appendChild(size);
+      li.appendChild(badge);
+      box.appendChild(li);
+    });
+  }
+
+  /* ---------- 数据 ---------- */
+  async function load() {
+    try {
+      var resp = await fetch('/dept/summary?days=' + state.days, { headers: headers() });
+      if (resp.status === 401) {
+        authbox.style.display = 'flex';
+        showBanner('需要访问令牌。若配置里 dept_console.token 为空，请联系管理员确认部署方式。', true);
+        return;
+      }
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      authbox.style.display = 'none';
+      render(await resp.json());
+    } catch (err) {
+      showBanner('加载失败：' + err.message + '（服务是否在运行？）', true);
+    }
+  }
+
+  $('tokenBtn').addEventListener('click', function () {
+    var value = $('tokenInput').value.trim();
+    if (!value) return;
+    state.token = value;
+    sessionStorage.setItem('dept_token', value);
+    authbox.style.display = 'none';
+    load();
+  });
+
+  document.querySelectorAll('#rangeSeg button').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      document.querySelectorAll('#rangeSeg button').forEach(function (other) { other.classList.remove('on'); });
+      btn.classList.add('on');
+      state.days = Number(btn.dataset.days);
+      state.active = '';
+      $('detail').hidden = true;
+      load();
+    });
+  });
+
+  $('refreshBtn').addEventListener('click', load);
+
+  $('exportBtn').addEventListener('click', async function () {
+    var btn = $('exportBtn');
+    btn.disabled = true;
+    var label = btn.textContent;
+    btn.textContent = '生成中…';
+    try {
+      var url = '/dept/report?days=' + state.days + '&download=true';
+      var resp = await fetch(url, { headers: headers() });
+      if (resp.status === 401 || resp.status === 403) { authbox.style.display = 'flex'; return; }
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      var blob = await resp.blob();
+      var stamp = new Date().toISOString().slice(0, 10);
+      var name = '周报-' + state.days + '天-' + stamp + '.xlsx';
+      var link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = name;
+      document.body.appendChild(link);
+      link.click();
+      setTimeout(function () { URL.revokeObjectURL(link.href); link.remove(); }, 1000);
+    } catch (err) {
+      showBanner('下载失败：' + err.message, true);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = label;
+    }
+  });
+
+  /* 通用下载：中文文件名走 blob，不依赖浏览器对 Content-Disposition 的解析 */
+  async function downloadMarkdown(url, filename, btn) {
+    var label = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; btn.textContent = '生成中…'; }
+    try {
+      var resp = await fetch(url, { headers: headers() });
+      if (resp.status === 401 || resp.status === 403) { authbox.style.display = 'flex'; return; }
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      var blob = await resp.blob();
+      var link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      setTimeout(function () { URL.revokeObjectURL(link.href); link.remove(); }, 1000);
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = label; }
+    }
+  }
+
+  $('gapsBtn').addEventListener('click', async function () {
+    var stamp = new Date().toISOString().slice(0, 10);
+    try {
+      await downloadMarkdown(
+        '/dept/gaps/download?days=' + state.days,
+        '补料清单-' + state.days + '天-' + stamp + '.md',
+        $('gapsBtn')
+      );
+      showBanner('补料清单已生成：按部门列出没答上来的问题，可直接分派补文件。', false);
+    } catch (err) {
+      showBanner('导出失败：' + err.message, true);
+    }
+  });
+
+  $('sendBtn').addEventListener('click', async function () {
+    var btn = $('sendBtn');
+    btn.disabled = true;
+    btn.textContent = '投递中…';
+    try {
+      var resp = await fetch('/dept/report/send?days=' + state.days, { method: 'POST', headers: headers() });
+      if (resp.status === 401) { authbox.style.display = 'flex'; return; }
+      var result = await resp.json();
+      var sent = result.sent || 0;
+      var preview = (result.deliveries || []).filter(function (item) { return item.status === 'dry_run'; }).length;
+      showBanner(
+        result.dry_run
+          ? '已完成预览：生成 ' + preview + ' 份邮件（未真发），文件在 logs/outbox/，用邮件客户端可直接打开 .eml 查看。'
+          : '已发送 ' + sent + ' 封周报邮件。',
+        false
+      );
+      load();
+    } catch (err) {
+      showBanner('投递失败：' + err.message, true);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '立即投递';
+    }
+  });
+
+  /* ---------- 上传事件 ---------- */
+  var dropzone = $('dropzone');
+  var fileInput = $('fileInput');
+
+  dropzone.addEventListener('click', function () {
+    if (!uploadState.busy) fileInput.click();
+  });
+  dropzone.addEventListener('keydown', function (event) {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      dropzone.click();
+    }
+  });
+  fileInput.addEventListener('change', function () {
+    handleFiles(fileInput.files);
+    fileInput.value = '';
+  });
+
+  var dragDepth = 0;
+  ['dragenter', 'dragover'].forEach(function (name) {
+    dropzone.addEventListener(name, function (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (name === 'dragenter') dragDepth += 1;
+      dropzone.classList.add('over');
+    });
+  });
+  dropzone.addEventListener('dragleave', function (event) {
+    event.preventDefault();
+    dragDepth = Math.max(0, dragDepth - 1);
+    if (!dragDepth) dropzone.classList.remove('over');
+  });
+  dropzone.addEventListener('drop', function (event) {
+    event.preventDefault();
+    event.stopPropagation();
+    dragDepth = 0;
+    dropzone.classList.remove('over');
+    handleFiles(event.dataTransfer && event.dataTransfer.files);
+  });
+  // 拖到页面其它位置时不要让浏览器直接打开文件（会把看板顶掉）
+  ['dragover', 'drop'].forEach(function (name) {
+    window.addEventListener(name, function (event) { event.preventDefault(); });
+  });
+
+  $('syncBtn').addEventListener('click', async function () {
+    var btn = $('syncBtn');
+    btn.disabled = true;
+    btn.textContent = '同步中…';
+    showBanner('正在同步知识库…', false);
+    try {
+      var first = await postSync();
+      var result = (first && first.job_id) ? await pollJob(first.job_id) : null;
+      if (result) {
+        await load();
+        showSyncResult(result);
+        loadUploads();
+      } else {
+        showBanner('没等到同步结束，请稍后在运维台查看索引状态。', true);
+      }
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '立即同步';
+    }
+  });
+
+  load();
+  loadUploads();
+  setInterval(load, 60000);
+})();
+</script>
+<script src="/static/auth-nav.js"></script>
+</body>
+</html>

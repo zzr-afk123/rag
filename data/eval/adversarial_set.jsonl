@@ -1,0 +1,26 @@
+{"question": "休学最多能休多久？", "kind": "paraphrase", "expected_doc": "学生学籍管理规定.md", "expected_answer_points": ["两年"], "should_refuse": false, "note": "原题「休学最长可以多久」的口语改写"}
+{"question": "开在读证明要等几天？", "kind": "paraphrase", "expected_doc": "办事指南-在读证明.txt", "expected_answer_points": ["1 个工作日"], "should_refuse": false, "note": "把「多久能拿到」换成「等几天」"}
+{"question": "图书馆借的书逾期一天要交多少钱？", "kind": "paraphrase", "expected_doc": "图书馆管理办法.md", "expected_answer_points": ["0.2"], "should_refuse": false, "note": "「罚多少钱」→「交多少钱」"}
+{"question": "本科生一次最多借几本书、能借多久？", "kind": "paraphrase", "expected_doc": "图书馆管理办法.md", "expected_answer_points": ["10 册", "30 天"], "should_refuse": false, "note": "双要点，考察表格类问题的抽取"}
+{"question": "做高危实验要提前多久报备？", "kind": "paraphrase", "expected_doc": "实验室安全管理规定.docx", "expected_answer_points": ["5 个工作日"], "should_refuse": false, "note": "「提交风险评估报告」→「报备」"}
+
+{"question": "复学需要提交什么村料？", "kind": "typo", "expected_doc": "学生学籍管理规定.md", "expected_answer_points": ["康复证明"], "should_refuse": false, "note": "「材料」错写成「村料」"}
+{"question": "在读正明去哪里办？", "kind": "typo", "expected_doc": "办事指南-在读证明.txt", "expected_answer_points": ["教务处"], "should_refuse": false, "note": "「证明」错写成「正明」"}
+{"question": "图书管周五几点开门？", "kind": "typo", "expected_doc": "图书馆管理办法.md", "expected_answer_points": ["8:00"], "should_refuse": false, "note": "「图书馆」错写成「图书管」"}
+{"question": "科研经费的差旅住宿费报消标准是多少？", "kind": "typo", "expected_doc": "科研经费报销管理办法.docx", "expected_answer_points": ["400"], "should_refuse": false, "note": "「报销」错写成「报消」"}
+
+{"question": "食堂早饭几点开始？", "kind": "cross_doc", "expected_docs": ["食堂开餐时间及意见处理公告.docx", "食堂.docx"], "expected_answer_points": ["6:50"], "should_refuse": false, "note": "同一事实分散在两份食堂文件里，任意一份都算命中"}
+{"question": "对食堂饭菜有意见怎么反映？", "kind": "cross_doc", "expected_docs": ["食堂开餐时间及意见处理公告.docx", "食堂.docx"], "expected_answer_points": ["2 个工作日"], "should_refuse": false, "note": "意见受理时限，考察多段信息合并"}
+{"question": "会议费的报销限额和审批人分别是什么？", "kind": "cross_doc", "expected_doc": "科研经费报销管理办法.docx", "expected_answer_points": ["500", "科研处"], "should_refuse": false, "note": "表格行 + 审批列，双要点"}
+
+{"question": "听说休学最多能休三年，是这样吗？", "kind": "induced", "expected_doc": "学生学籍管理规定.md", "expected_answer_points": ["两年"], "forbidden_points": ["三年"], "should_refuse": false, "note": "错误前提：规定是累计不超过两年"}
+{"question": "图书馆本科生一次能借 20 本吧？", "kind": "induced", "expected_doc": "图书馆管理办法.md", "expected_answer_points": ["10 册"], "forbidden_points": ["20 册"], "should_refuse": false, "note": "错误前提：本科 10 册、研究生 20 册"}
+{"question": "逾期还书一天罚 1 块钱，对吗？", "kind": "induced", "expected_doc": "图书馆管理办法.md", "expected_answer_points": ["0.2"], "forbidden_points": ["1 元"], "should_refuse": false, "note": "错误前提：每册每天 0.2 元"}
+{"question": "研讨间可以预约一整天吗？", "kind": "induced", "expected_doc": "图书馆管理办法.md", "expected_answer_points": ["3 小时"], "forbidden_points": ["整天"], "should_refuse": false, "note": "错误前提：单次不超过 3 小时"}
+{"question": "在校外不连 VPN 也能用学校数据库吧？", "kind": "induced", "expected_doc": "图书馆管理办法.md", "expected_answer_points": ["VPN"], "should_refuse": false, "note": "错误前提：必须通过校园 VPN 认证"}
+
+{"question": "郑州今天天气怎么样？", "kind": "off_topic", "should_refuse": true, "note": "完全超出知识库范围"}
+{"question": "帮我写一篇入党申请书", "kind": "off_topic", "should_refuse": true, "note": "生成类需求，不属于制度问答"}
+{"question": "2026 年河南高考一本线是多少？", "kind": "off_topic", "should_refuse": true, "note": "外部事实，知识库里没有"}
+
+{"question": "实验室的剧毒品存放在哪、最多能放多少？", "kind": "paraphrase", "expected_doc": "实验室安全管理规定.docx", "expected_answer_points": ["双人双锁", "500 克"], "should_refuse": false, "note": "表格内容，双要点"}
