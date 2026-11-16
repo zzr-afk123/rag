@@ -207,6 +207,43 @@ def test_login_rate_limit(auth_client: TestClient) -> None:
     assert response.status_code == 429
 
 
+def test_session_cookie_secure_follows_protocol(auth_settings: Settings) -> None:
+    """HTTPS 请求的会话 Cookie 必须带 Secure；明文 HTTP 不能带。
+
+    带反了会出两种事故：公网隧道上 Cookie 被明文转发（漏会话），
+    或局域网 http 演示时浏览器拒发 Cookie（谁都登不上）。
+
+    每个协议各建一个 app：``TestClient`` 退出时会关掉向量库，同一个 app
+    再进第二次 lifespan 就没有 collection 可用了。
+    """
+    def _app() -> object:
+        auth_settings.log_dir.mkdir(parents=True, exist_ok=True)
+        return create_app(
+            auth_settings,
+            chat_service=ChatService(auth_settings, kb=KnowledgeBase(auth_settings)),
+        )
+
+    body = {"id": "20230001", "password": "s1"}
+
+    with TestClient(_app()) as plain:
+        cookie = plain.post("/auth/login", json=body).headers.get("set-cookie", "")
+        assert "Secure" not in cookie
+        assert "HttpOnly" in cookie
+
+    with TestClient(_app(), base_url="https://demo.example.cn") as tls:
+        cookie = tls.post("/auth/login", json=body).headers.get("set-cookie", "")
+        assert "Secure" in cookie
+
+
+def test_cookie_secure_setting_forces_flag(auth_settings: Settings) -> None:
+    """`auth.cookie_secure=true` 是显式强制：即使代理没改写协议也必须加 Secure。"""
+    settings = replace(auth_settings, auth=replace(auth_settings.auth, cookie_secure=True))
+    app = create_app(settings, chat_service=ChatService(settings, kb=KnowledgeBase(settings)))
+    with TestClient(app) as client:
+        cookie = client.post("/auth/login", json={"id": "20230001", "password": "s1"}).headers.get("set-cookie", "")
+        assert "Secure" in cookie
+
+
 def test_student_cannot_download_dept_report(auth_client: TestClient) -> None:
     login(auth_client, "20230001", "s1")
     assert auth_client.get("/dept/report?dept=jwc&days=7").status_code == 403

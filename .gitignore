@@ -3,6 +3,9 @@ __pycache__/
 .venv/
 venv/
 .env
+# 账号库只存 PBKDF2 哈希，但哈希本身即凭据（可离线爆破），不入库；模板见 users.yaml.example
+config/users.yaml
+config/*.local.yaml
 data/index/
 data/raw_history/
 logs/

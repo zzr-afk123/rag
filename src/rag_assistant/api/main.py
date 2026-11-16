@@ -303,10 +303,12 @@ def run() -> None:  # pragma: no cover - 需要真实端口
         port=cfg.server.port,
         workers=1,  # 见模块 docstring：多 worker 会各持一份索引
         log_level="info",
-        # 放在 Nginx/Caddy 后面时，真实客户端 IP 只在 X-Forwarded-For 里；
-        # 不打开这两个开关，限流会把所有访问算成代理那一个 IP。
+        # 放在 Nginx/Caddy/cloudflared 后面时，真实客户端 IP 与协议只在
+        # X-Forwarded-* 里；不打开 proxy_headers，限流与 Secure Cookie 会把
+        # 所有人算成代理那一个 IP。allow-ips 用配置里的名单（默认只有本机），
+        # 设成 "*" 等于让任何客户端伪造来源 IP，限流和登录节流随即失效。
         proxy_headers=True,
-        forwarded_allow_ips="*",
+        forwarded_allow_ips=",".join(cfg.server.forwarded_allow_ips) or "127.0.0.1",
     )
 
 

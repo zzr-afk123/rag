@@ -275,6 +275,11 @@ class ServerConfig:
     #: 是否信任 X-Forwarded-For。只有确实部署在反向代理后面（且代理会重写该头）
     #: 才设 true；否则任何人都能伪造它绕过登录节流与限流。
     trust_forwarded_for: bool = False
+    #: 交给 uvicorn ``--forwarded-allow-ips``：只有来自这些地址的请求，其
+    #: ``X-Forwarded-For`` / ``X-Forwarded-Proto`` 才会被用来改写连接地址与协议。
+    #: 默认只信任本机代理（cloudflared / nginx / caddy 常见于同机部署）。
+    #: 填 "*" 等于对所有来源放行，限流与登录节流随即失效，不要这么配。
+    forwarded_allow_ips: tuple[str, ...] = ("127.0.0.1",)
     #: 对外域名（如 https://zhidu.example.edu.cn）。仅用于在控制台/健康检查里
     #: 展示"分享给别人的地址"，不参与路由；反向代理后本机看不到真实域名，
     #: 这里显式配置比自动探测可靠。
@@ -365,7 +370,8 @@ class AuthConfig:
     session_ttl_hours: float = 12.0
     allow_guest: bool = True
     cookie_name: str = "rag_session"
-    #: 走 HTTPS 后设为 true（Cookie 只经加密连接发送）
+    #: 强制给会话 Cookie 打 Secure 位。留 false 也可以：请求本身走 HTTPS 时
+    #: 代码会自动加 Secure，明文 HTTP 局域网演示则不会（否则永远登不上）。
     cookie_secure: bool = False
     login_limit_per_min: int = 10
 

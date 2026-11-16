@@ -604,11 +604,16 @@ start.bat --lan --port 8080 # 换端口
 .venv\Scripts\python.exe scripts\manage_users.py passwd --id 20230001 --password 新密码
 ```
 
-改完即生效（用户库按文件 mtime 自动重载），不用重启。初始示例账号是
-`20230001/student123`、`jwc01/dept123`（部门）、`admin/admin123`，**上线前必须改掉**。
+改完即生效（用户库按文件 mtime 自动重载），不用重启。`manage_users.py init` 给每个账号
+生成**一次性随机口令**，屏幕上打印一次并另存到 `logs/credentials.txt`（`logs/` 不入库、
+不进镜像，演示完请删除）；仓库里只有模板 `config/users.yaml.example`，真实账号库
+`config/users.yaml` 也在 `.gitignore` 里。确实想要可记忆的示例口令（本机演示），
+用 `init --weak-demo-passwords`——它用的是公开值，启动检查会把命中的账号列出来。
 
 会话：随机 token 存 HttpOnly Cookie（`SameSite=Lax`，默认 12 小时），用户信息在服务端内存；
-重启服务需要重新登录（单 worker 的取舍）。走 HTTPS 时把 `auth.cookie_secure` 设为 `true`。
+重启服务需要重新登录（单 worker 的取舍）。请求本身是 HTTPS（包括经 `127.0.0.1` 的
+cloudflared/Nginx 带 `X-Forwarded-Proto: https` 转发进来的）时，Cookie 自动带 `Secure`；
+`auth.cookie_secure: true` 是"强制 Secure"的显式开关，明文 HTTP 环境开了会登不上。
 登录失败按 IP 限流（默认 10 次/分钟），失败提示统一为「编号或密码错误」，不暴露账号是否存在。
 
 `auth.enabled=false` 会变成"谁都能进且按管理员处理"，只用于本机调试；部门看板另有
@@ -627,8 +632,12 @@ start.bat --lan --port 8080 # 换端口
 （`{user_id}::{session_id}`），别人拿到同一个 id 也读不到你的上下文；同一个人刷新页面仍能续上。
 
 **代理与限流**：`X-Forwarded-For` 默认**不采信**（`server.trust_forwarded_for: false`），
-限流与登录节流都按 TCP 连接地址计数；否则换一个伪造头就能绕过。确实部署在
-Nginx/Caddy 后面时把该开关打开，并让代理覆盖而不是追加这个头。
+限流与登录节流都按 TCP 连接地址计数；否则换一个伪造头就能绕过。确实部署在反向代理后面时，
+首选让 uvicorn 在**来源地址受信任**的前提下改写连接地址：`server.forwarded_allow_ips`
+（对应 `--forwarded-allow-ips`）填代理的 IP，cloudflared 隧道/Nginx 同机就写 `127.0.0.1`。
+改写生效后 `request.client.host` 就是真实访客 IP，`trust_forwarded_for` 可以继续保持 false。
+两个开关都不要图省事设成 `*`/无条件信任——那等于把限流计数器和登录节流交给客户端说了算。
+代理只追加而不覆盖 `X-Forwarded-For` 时，伪造第一段照样能骗过应用层的直接读取。
 
 ---
 
@@ -987,8 +996,9 @@ docker compose up -d
 - **容器不以 root 运行**：镜像里建了 uid 10001 的 `app` 用户，`/app` 与 `/data` 归它所有；
   挂载卷时注意宿主机目录权限。
 - **不要开 `--forwarded-allow-ips=*`**：那等于让任何人用 `X-Forwarded-For` 伪装 IP，限流与登录
-  节流都会失效。确实在 Nginx/Caddy 后面时，把代理地址写进 `FORWARDED_ALLOW_IPS`，或改用
-  `server.trust_forwarded_for: true`。
+  节流都会失效。确实在 Nginx/Caddy 后面时，把代理地址写进 `FORWARDED_ALLOW_IPS`（或
+  `server.forwarded_allow_ips`）。`server.trust_forwarded_for: true` 是应用层直接读头的兜底做法，
+  只有在代理**覆盖**而不是追加这个头时才成立，优先用前面那种。
 - **鉴权默认开启**：`auth.enabled=true` 且账号库为空时进程拒绝启动（见 §6.6）；记得先
   `scripts/manage_users.py init` 并改掉示例口令。
 - **内存**：bge-m3 + reranker 常驻约 3–4GB，compose 里限 6g，低于 2g 会 OOM；
@@ -1022,7 +1032,9 @@ netsh advfirewall firewall add rule name="RAG 8000" dir=in action=allow protocol
 三个必须记住的点：
 
 1. `/chat/stream` 必须 `proxy_buffering off`（Caddy 是 `flush_interval -1`），否则流式会变成一次性输出；
-2. uvicorn 要带 `--proxy-headers --forwarded-allow-ips=*`（Dockerfile 已加），否则限流只看到代理那一个 IP；
+2. uvicorn 要带 `--proxy-headers --forwarded-allow-ips=<代理地址>`（`rag-api` 与 Docker 从
+   `server.forwarded_allow_ips` / `FORWARDED_ALLOW_IPS` 取值，同机代理填 `127.0.0.1`），
+   否则限流只看到代理那一个 IP；**不要写 `*`**（见 §10.3）；
 3. `server.public_url` 填上域名，控制台会显示"对外地址"，方便直接发给别人。
 
 **公开前请先设访问令牌和限流**（否则 `/chat` 就是别人刷你 LLM 额度的入口）：

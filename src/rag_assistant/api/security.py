@@ -48,6 +48,16 @@ def client_ip(request: Request, *, trust_forwarded_for: bool = False) -> str:
     return request.client.host if request.client else "unknown"
 
 
+def is_https(request: Request) -> bool:
+    """这次请求是不是加密进来的。
+
+    只看 ``scope["scheme"]``：uvicorn 在 ``proxy_headers`` 打开且连接方在
+    ``forwarded_allow_ips`` 名单里时，才会用 ``X-Forwarded-Proto`` 改写它。
+    自己再去读一遍原始头反而危险——明文 HTTP 下客户端可以伪造这个头。
+    """
+    return request.url.scheme == "https"
+
+
 class RateLimiter:
     """按 key（通常是 IP）的滑动窗口计数器。进程内实现，单 worker 假设。"""
 

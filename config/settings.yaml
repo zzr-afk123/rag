@@ -146,6 +146,12 @@ server:
   # 默认 false：直接读 request.client.host，否则任何人都能用 X-Forwarded-For
   # 伪造来源 IP，把限流和登录节流旁路掉。
   trust_forwarded_for: false
+  # uvicorn 的 --forwarded-allow-ips：只有来自这些地址的连接，其 X-Forwarded-For /
+  # X-Forwarded-Proto 才被用来改写"客户端是谁、走没走 HTTPS"。
+  # · cloudflared 临时隧道跑在本机 → 127.0.0.1 就够（隧道会带上真实访客 IP）；
+  # · Nginx/Caddy 同机 → 保持 127.0.0.1；异机 → 填代理那台的内网地址；
+  # · 写 "*" 等于允许任意客户端伪造 IP，限流与登录节流随即失效，别这么配。
+  forwarded_allow_ips: ["127.0.0.1"]
   # 对外域名：部署到公网后填这里（如 https://zhidu.example.edu.cn），
   # 控制台会显示"分享给别人的地址"。只用于展示，不参与路由。
   public_url: ""
@@ -160,7 +166,11 @@ auth:
   session_ttl_hours: 12
   allow_guest: true
   cookie_name: rag_session
-  cookie_secure: false     # 上 HTTPS 后改 true
+  # 请求本身是 HTTPS（含经 127.0.0.1 受信任代理转发的 X-Forwarded-Proto）时，
+  # 代码会自动给会话 Cookie 加 Secure，这里留 false 也安全。
+  # 设为 true 是"强制 Secure"：只用在代理没改写协议、但你确定全站 HTTPS 的场合。
+  # 注意：明文 HTTP 环境下强制 true 会让所有人登不上。
+  cookie_secure: false
   login_limit_per_min: 10  # 同一 IP 每分钟最多尝试几次登录
 
 # ---- 品牌（只在页面展示，不参与回答生成）----

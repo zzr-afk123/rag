@@ -12,6 +12,7 @@
     -LlamaPort 1234        本地模型端口
     -ModelPath ""          指定 .gguf；留空自动在 LM Studio 模型目录里找
     -SkipModel             不启动本地模型（此时回落到 settings.yaml 的默认 provider）
+    -BindLan               本地服务额外绑定 0.0.0.0，让同 Wi-Fi 的手机也能直接访问
     -StartupTimeoutSeconds 180   等待服务就绪的上限（秒）
     -NoBrowser             不自动打开浏览器
 #>
@@ -21,6 +22,7 @@ param(
     [int]$LlamaPort = 1234,
     [string]$ModelPath = "",
     [switch]$SkipModel,
+    [switch]$BindLan,
     [int]$StartupTimeoutSeconds = 180,
     [switch]$NoBrowser
 )
@@ -261,8 +263,17 @@ try {
     } else {
         Write-Step "启动本地服务..." "Starting RAG service..."
         Write-Note "首次加载 bge-m3 模型需要 1-2 分钟" "First bge-m3 load takes 1-2 min"
+        # 只绑 127.0.0.1：外网流量全走 cloudflared，本机不必再对整个局域网开 8000。
+        # 需要手机同 Wi-Fi 一起用就加 -BindLan。
+        $bind = if ($BindLan) { "0.0.0.0" } else { "127.0.0.1" }
+        # 隧道跑在本机，所以 cloudflared 是唯一的"代理"：只信任 127.0.0.1 传来的
+        # X-Forwarded-For（真实访客 IP）与 X-Forwarded-Proto（https）。
+        # 公网入口默认收紧限流，避免拿到链接的人刷 LLM 额度。
+        if (-not $env:RAG_SERVER__RATE_LIMIT_PER_MIN) { $env:RAG_SERVER__RATE_LIMIT_PER_MIN = "30" }
         $server = Start-Process -FilePath $VenvPython `
-            -ArgumentList @("-m", "uvicorn", "rag_assistant.api.main:app", "--host", "0.0.0.0", "--port", "$Port", "--workers", "1") `
+            -ArgumentList @("-m", "uvicorn", "rag_assistant.api.main:app",
+                "--host", $bind, "--port", "$Port", "--workers", "1",
+                "--proxy-headers", "--forwarded-allow-ips", "127.0.0.1") `
             -WorkingDirectory $ProjectRoot -NoNewWindow `
             -RedirectStandardOutput $ServerOut -RedirectStandardError $ServerErr -PassThru
 
@@ -355,9 +366,14 @@ else:
     Write-Host "  公网地址（已复制到剪贴板）" -ForegroundColor White
     Write-Host "  $url" -ForegroundColor Green
     Write-Host "================================================================" -ForegroundColor DarkGray
-    Write-Host "  学生   20230001 / student123" -ForegroundColor Gray
-    Write-Host "  部门   jwc01 / dept123   （可看部门看板、上传文件）" -ForegroundColor Gray
-    Write-Host "  管理   admin / admin123" -ForegroundColor Gray
+    Write-Host "  入口     $url（访客按钮在登录页，只开放问答）" -ForegroundColor Gray
+    $credFile = Join-Path $LogDir "credentials.txt"
+    if (Test-Path $credFile) {
+        Write-Host "  部门/管理账号口令见 $credFile（logs 不入库，别贴进群里）" -ForegroundColor Gray
+    } else {
+        Write-Host "  部门/管理账号：python scripts\manage_users.py list（口令在 init 时打印过一次）" -ForegroundColor Gray
+    }
+    Write-Host "  收工     删掉 logs\tunnel-url.txt 与这条 URL，临时域名不会一直有效" -ForegroundColor Gray
     Write-Host ""
     if ($SkipModel) {
         Write-Host "  回答模型：settings.yaml 默认（无 Key 时是 mock）" -ForegroundColor Gray

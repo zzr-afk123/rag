@@ -113,7 +113,8 @@ docker compose logs -f      # 首次会下载 4.5GB 模型
 
 ### 2.4.1 账号与权限
 
-上线前先初始化登录账号并改掉示例密码：
+上线前先初始化登录账号（`init` 给每个账号生成一次性随机口令，打印一次并写进
+`logs/credentials.txt`，该目录不入库；随后建议用 `passwd` 换成自己定的口令）：
 
 ```bash
 .venv/bin/python scripts/manage_users.py init
@@ -122,7 +123,8 @@ docker compose logs -f      # 首次会下载 4.5GB 模型
 ```
 
 - 学生账号只能问答；部门账号（`--role dept`）才能看 `/dept` 与 `/console`；
-- 走 HTTPS 后把 `config/settings.yaml` 的 `auth.cookie_secure` 设为 `true`；
+- HTTPS 下会话 Cookie 会自动带 `Secure`（前提是 uvicorn 信任了这台代理的
+  `X-Forwarded-Proto`）；`auth.cookie_secure: true` 只用于强制打开，明文 HTTP 环境开了会登不上；
 - 登录开启后，共享令牌 `public_access_token` / `dept_console.token` 不再叠加（避免输两次口令）。
 
 ### 2.5 后台常驻
@@ -140,9 +142,12 @@ journalctl -u rag-assistant -f
 
 - [ ] `curl https://域名/health` 返回 `"status":"ok"`，且 `llm_mock=false`（否则 Key 没生效，一直在 mock）；
 - [ ] 手机用 4G/5G（不走校园网）打开首页，提问能看到逐字输出；
-- [ ] 已初始化账号并改掉示例密码（`scripts/manage_users.py list`）；
+- [ ] 已初始化账号（`manage_users.py list` 能看到账号），口令已从 `logs/credentials.txt`
+      换成自己定的并删掉该文件；启动日志没有「示例口令」告警；
 - [ ] 学生账号访问 `/dept` 返回 403（用学生号实测一次）；
-- [ ] `auth.cookie_secure=true`（HTTPS 环境）；
+- [ ] 浏览器里登录后检查 Cookie 有 `Secure`（HTTPS 环境自动加，可用 `auth.cookie_secure=true` 强制）；
+- [ ] uvicorn 的 `--forwarded-allow-ips` 是代理地址而不是 `*`；Nginx 用
+      `X-Forwarded-For $remote_addr` 覆盖而非追加（见 `deploy/nginx.conf` 顶部说明）；
 - [ ] Nginx 配置里 `/chat/stream` 有 `proxy_buffering off`；
 - [ ] 8000 端口没有直接暴露到公网（`ss -lntp` 只看到 127.0.0.1:8000）；
 - [ ] 备份：`data/`（文档+索引）、`logs/`（问答日志，周报要用）、`config/`；

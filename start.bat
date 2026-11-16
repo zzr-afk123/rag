@@ -116,7 +116,7 @@ set "RAG_SERVER__PORT=%PORT%"
 
 rem ---------- login accounts ----------
 if not exist "config\users.yaml" (
-    echo Creating demo accounts ^(20230001 / student123, jwc01 / dept123^) ...
+    echo Creating demo accounts ^(random passwords, see logs\credentials.txt^) ...
     "%PY%" scripts\manage_users.py init
 )
 

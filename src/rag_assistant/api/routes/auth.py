@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 from ...auth import UserStore, current_user, guest_user
 from ...config import Settings
 from ...logging_setup import get_logger
-from ..security import client_ip
+from ..security import client_ip, is_https
 
 router = APIRouter(tags=["auth"])
 logger = get_logger("api.auth")
@@ -55,7 +55,9 @@ def _grant(request: Request, response: Response, user) -> None:
         max_age=int(settings.auth.session_ttl_hours * 3600),
         httponly=True,
         samesite="lax",
-        secure=bool(settings.auth.cookie_secure),
+        # 加密连接自动加 Secure；显式开关用于"就算代理没改写协议也必须 Secure"的部署。
+        # 明文 HTTP 下强制 Secure 会让任何人都登不上，所以不是无条件 true。
+        secure=bool(settings.auth.cookie_secure) or is_https(request),
         path="/",
     )
 

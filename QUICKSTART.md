@@ -256,8 +256,10 @@ uvicorn rag_assistant.api.main:app --port 8000
 .venv\Scripts\python.exe scripts\manage_users.py list
 ```
 
-示例账号：`20230001 / student123`（学生）、`jwc01 / dept123`（部门，可看部门看板）、
-`admin / admin123`。上线前务必改密：
+`init` 会为每个账号生成一次性随机口令：屏幕上打印一次，同时写进 `logs/credentials.txt`
+（`logs/` 已被 `.gitignore` 排除，别把它贴到群里，用完删掉）。账号 id 固定是
+`20230001`（学生）、`jwc01` / `xsc01`（部门，可看部门看板）、`admin`（管理员）。
+想换成自己定的口令：
 
 ```powershell
 .venv\Scripts\python.exe scripts\manage_users.py passwd --id 20230001 --password 新密码

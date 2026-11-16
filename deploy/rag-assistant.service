@@ -25,9 +25,11 @@ Environment=HF_ENDPOINT=https://hf-mirror.com
 Environment=HF_HOME=/opt/rag-assistant/.hf
 # Key 放在 /etc/rag-assistant.env（权限 600，属主 rag），不要写进单元文件
 EnvironmentFile=-/etc/rag-assistant.env
+# --forwarded-allow-ips 只信任同机 Nginx/Caddy（127.0.0.1）转来的 X-Forwarded-*；
+# 写 * 等于允许任意客户端伪造来源 IP，限流与登录节流会被绕过。
 ExecStart=/opt/rag-assistant/.venv/bin/uvicorn rag_assistant.api.main:app \
     --host 127.0.0.1 --port 8000 --workers 1 \
-    --proxy-headers --forwarded-allow-ips=*
+    --proxy-headers --forwarded-allow-ips=127.0.0.1
 Restart=always
 RestartSec=5
 # 4.5GB 模型权重常驻，给足内存

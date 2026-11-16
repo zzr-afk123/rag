@@ -1,0 +1,31 @@
+# =========================================================
+# 账号库模板。复制为 config/users.yaml 后用自己的口令填充：
+#
+#   python scripts\manage_users.py init          # 生成示例账号（口令是 weak 默认值，启动会告警）
+#   python scripts\manage_users.py passwd --id admin --password '一个足够长的口令'
+#   python scripts\manage_users.py list
+#
+# 说明：
+# 1. password 只存 pbkdf2_sha256$迭代$盐$哈希，不存明文；手写哈希没有意义，用上面的命令生成。
+# 2. config/users.yaml 已在 .gitignore / .dockerignore 里排除，不会进仓库或镜像层。
+# 3. auth.enabled=true 且账号库为空时进程拒绝启动（见 README §6.6）。
+# =========================================================
+users:
+- id: '20230001'
+  name: 张三
+  role: student          # student | dept | admin | guest
+  department: ''         # dept/admin 必填，对应 config/departments.yaml 的部门名
+  password: ''           # 用 manage_users.py 生成，空哈希无法登录
+  active: true
+- id: jwc01
+  name: 王老师
+  role: dept
+  department: 教务处
+  password: ''
+  active: true
+- id: admin
+  name: 系统管理员
+  role: admin
+  department: ''
+  password: ''
+  active: true
