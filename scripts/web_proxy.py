@@ -23,9 +23,12 @@ from __future__ import annotations
 import argparse
 import base64
 import html as html_lib
+import hmac
+import ipaddress
 import json
 import os
 import re
+import socket
 import sys
 import threading
 import time
@@ -33,11 +36,11 @@ from collections import OrderedDict
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Iterable, Sequence
-from urllib.parse import parse_qs, quote, urlparse
+from urllib.parse import parse_qs, quote, urlparse, urljoin
 
 import httpx
 from fastapi import FastAPI, Request
-from fastapi.responses import Response, StreamingResponse
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 
 # --------------------------------------------------------------------------
 # 配置
@@ -112,6 +115,119 @@ def is_relevant(result: SearchResult, query: str, *, threshold: int = 3) -> bool
         return False
     hit = _bigrams(f"{result.title} {result.text}") & query_grams
     return len(hit) >= threshold
+
+
+# --------------------------------------------------------------------------
+# 出站访问闸门（SSRF）
+# --------------------------------------------------------------------------
+#: 代理和 RAG 服务跑在同一台机器上：127.0.0.1:1234 是模型、:8000 是问答服务、
+#: 169.254.169.254 是云上临时凭据。而被抓的链接来自搜索引擎结果页，属于外部可控内容。
+#: 不加这道闸门，一句"帮我看看 http://127.0.0.1:8000/console"就能把内部页面读进 prompt。
+_BLOCKED_CIDRS = (
+    "0.0.0.0/8", "10.0.0.0/8", "100.64.0.0/10", "127.0.0.0/8", "169.254.0.0/16",
+    "172.16.0.0/12", "192.0.0.0/24", "192.168.0.0/16", "198.18.0.0/15",
+    "::1/128", "fc00::/7", "fe80::/10",
+)
+_ALLOWED_SCHEMES = ("http", "https")
+#: 先按名字拦一遍，不依赖解析结果：``localhost`` 在 hosts 文件被改过、或测试里
+#: DNS 被打桩时，"解析到公网"这种判断会失效。
+_BLOCKED_HOSTS = ("localhost", "metadata.google.internal", "metadata")
+_BLOCKED_HOST_SUFFIXES = (".localhost", ".internal", ".local", ".localdomain")
+#: 手动跟随重定向的上限：自动跟随会把闸门绕过（第一跳公网、第二跳回环）
+_MAX_REDIRECTS = 3
+
+
+def _is_blocked_ip(raw: str) -> bool:
+    try:
+        addr = ipaddress.ip_address(raw)
+    except ValueError:
+        return True  # 认不出来的写法一律不放行
+    return (
+        addr.is_private
+        or addr.is_loopback
+        or addr.is_link_local
+        or addr.is_reserved
+        or addr.is_multicast
+        or addr.is_unspecified
+    )
+
+
+def is_safe_url(url: str) -> bool:
+    """这个地址能不能抓：只允许 http(s)，且主机必须解析到公网地址。
+
+    域名要现场解析（不是只查黑名单字符串），否则 ``localhost``、
+    ``internal.example.edu`` 这类"名字看不出问题、解析到内网"的写法会漏过去。
+    """
+    try:
+        parsed = urlparse(url)
+        port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    except ValueError:
+        return False
+    if parsed.scheme not in _ALLOWED_SCHEMES or not parsed.hostname:
+        return False
+    host = parsed.hostname.lower().rstrip(".")
+    if host in _BLOCKED_HOSTS or host.endswith(_BLOCKED_HOST_SUFFIXES):
+        return False
+    try:
+        literal = ipaddress.ip_address(host)
+    except ValueError:
+        literal = None
+    if literal is not None:
+        # 字面量 IP 不用查 DNS，直接判段（写 ``http://127.0.0.1`` 的人没必要等他解析）
+        return not _is_blocked_ip(str(literal))
+    try:
+        infos = socket.getaddrinfo(host, port, proto=socket.IPPROTO_TCP)
+    except (OSError, UnicodeError):
+        return False
+    return bool(infos) and not any(_is_blocked_ip(item[4][0]) for item in infos)
+
+
+def http_get(
+    url: str,
+    *,
+    params: dict[str, Any] | None = None,
+    timeout: float,
+    follow: int = 0,
+    guard: Any = is_safe_url,
+) -> httpx.Response | None:
+    """取一页，失败返回 ``None``（联网功能不许把主链路带崩）。
+
+    重定向手动跟随且每一跳都过 ``guard``：自动跟随等于把闸门绕过
+    （第一跳是公网正规站点，第二跳跳到 ``http://127.0.0.1:8000``）。
+
+    ``except httpx.HTTPError`` 是不够的：``httpx.InvalidURL`` 直接继承 ``Exception``。
+    有些环境的 ``NO_PROXY`` 写成含 ``[::1]`` 的逗号表，httpx 解析它会抛 InvalidURL，
+    于是每一次外发都失败——这时退回"不读环境代理"再试一次，比整条联网链路哑掉好。
+    """
+    headers = {"User-Agent": USER_AGENT, "Accept-Language": "zh-CN,zh;q=0.9"}
+    target, query = url, params
+    for hop in range(follow + 1):
+        if guard is not None and not guard(target):
+            return None
+        response = None
+        for trust_env in (True, False):
+            try:
+                response = httpx.get(
+                    target,
+                    params=query,
+                    headers=headers,
+                    timeout=timeout,
+                    follow_redirects=False,
+                    trust_env=trust_env,
+                )
+                break
+            except (httpx.HTTPError, httpx.InvalidURL, OSError):
+                continue
+        if response is None:
+            return None
+        if hop < follow and response.status_code in (301, 302, 303, 307, 308):
+            location = response.headers.get("location", "").strip()
+            if not location:
+                return None
+            target, query = urljoin(target, location), None
+            continue
+        return response
+    return None
 
 
 # --------------------------------------------------------------------------
@@ -207,19 +323,13 @@ def parse_bing(html: str, *, limit: int = MAX_RESULTS) -> list[SearchResult]:
 
 def bing_search(query: str, *, limit: int = MAX_RESULTS, timeout: float = 12.0) -> list[SearchResult]:
     """走 cn.bing.com 抓结果页。失败返回空列表，让调用方决定重试还是直接说没查到。"""
-    url = "https://cn.bing.com/search"
-    params = {"q": query, "setlang": "zh-CN", "ensearch": "0"}
-    try:
-        resp = httpx.get(
-            url,
-            params=params,
-            headers={"User-Agent": USER_AGENT, "Accept-Language": "zh-CN,zh;q=0.9"},
-            timeout=timeout,
-            follow_redirects=True,
-        )
-    except httpx.HTTPError:
-        return []
-    if resp.status_code != 200:
+    resp = http_get(
+        "https://cn.bing.com/search",
+        params={"q": query, "setlang": "zh-CN", "ensearch": "0"},
+        timeout=timeout,
+        follow=2,
+    )
+    if resp is None or resp.status_code != 200:
         return []
     return parse_bing(resp.text, limit=limit)
 
@@ -260,17 +370,8 @@ def parse_so(html: str, *, limit: int = MAX_RESULTS) -> list[SearchResult]:
 
 def so_search(query: str, *, limit: int = MAX_RESULTS, timeout: float = 12.0) -> list[SearchResult]:
     """360 搜索兜底。Bing 对"郑州大学在哪里"这类中文问句会降级成只按"郑州"返回。"""
-    try:
-        resp = httpx.get(
-            "https://www.so.com/s",
-            params={"q": query},
-            headers={"User-Agent": USER_AGENT, "Accept-Language": "zh-CN,zh;q=0.9"},
-            timeout=timeout,
-            follow_redirects=True,
-        )
-    except httpx.HTTPError:
-        return []
-    if resp.status_code != 200:
+    resp = http_get("https://www.so.com/s", params={"q": query}, timeout=timeout, follow=2)
+    if resp is None or resp.status_code != 200:
         return []
     return parse_so(resp.text, limit=limit)
 
@@ -314,17 +415,13 @@ def search_web(query: str, *, limit: int = MAX_RESULTS) -> list[SearchResult]:
 
 
 def fetch_page(url: str, *, timeout: float = PAGE_TIMEOUT, chars: int = PAGE_CHARS) -> str:
-    """抓一页正文并截断。只认 text/html，别的（pdf、图片）直接放弃。"""
-    try:
-        resp = httpx.get(
-            url,
-            headers={"User-Agent": USER_AGENT, "Accept-Language": "zh-CN,zh;q=0.9"},
-            timeout=timeout,
-            follow_redirects=True,
-        )
-    except httpx.HTTPError:
-        return ""
-    if resp.status_code != 200:
+    """抓一页正文并截断。只认 text/html，别的（pdf、图片）直接放弃。
+
+    出站前先过 ``is_safe_url``（含每一跳重定向）：这里的 URL 来自搜索结果页，
+    是外部可控内容，不做 SSRF 闸门就等于让模型"替我们访问内网"。
+    """
+    resp = http_get(url, timeout=timeout, follow=_MAX_REDIRECTS)
+    if resp is None or resp.status_code != 200:
         return ""
     ctype = resp.headers.get("content-type", "")
     if "html" not in ctype.lower():
@@ -549,9 +646,32 @@ def with_web(
 # --------------------------------------------------------------------------
 # HTTP 层
 # --------------------------------------------------------------------------
-def create_app(upstream: str = DEFAULT_UPSTREAM) -> FastAPI:
+def create_app(upstream: str = DEFAULT_UPSTREAM, *, token: str = "") -> FastAPI:
+    """``token`` 非空时，除 ``/health`` 外的每个接口都要带口令。
+
+    代理默认只听 127.0.0.1，看起来不用鉴权；但它能把本机 GPU 的模型算力、
+    以及"替访问者抓一个 URL"的出站能力都交出去。一旦有人为了手机演示改成
+    ``--host 0.0.0.1/0.0.0.0``，同一 Wi-Fi 里的任何人都能刷它，所以把口令
+    做成显式开关（``--token`` / ``WEB_PROXY_TOKEN``）。
+    OpenAI 兼容客户端直接把自己的 api_key 填成这个串即可（走 ``Authorization: Bearer``）。
+    """
     app = FastAPI(title="LM Studio Web Proxy", version="0.1.0")
     state = {"upstream": upstream.rstrip("/")}
+    expected = token.strip()
+
+    @app.middleware("http")
+    async def _require_token(request: Request, call_next):  # noqa: ANN001, ANN202
+        if not expected or request.url.path == "/health":
+            return await call_next(request)
+        bearer = request.headers.get("authorization", "")
+        provided = bearer[7:].strip() if bearer[:7].lower() == "bearer " else ""
+        provided = provided or request.headers.get("x-proxy-token", "").strip()
+        if not hmac.compare_digest(provided, expected):
+            return JSONResponse(
+                {"error": {"message": "联网代理需要口令：用 Authorization: Bearer <口令> 或 X-Proxy-Token 头", "type": "unauthorized"}},
+                status_code=401,
+            )
+        return await call_next(request)
 
     @app.get("/health")
     def health() -> dict[str, Any]:
@@ -638,18 +758,27 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--port", type=int, default=DEFAULT_PORT, help="代理监听端口，默认 1235")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--max-results", type=int, default=MAX_RESULTS)
+    parser.add_argument(
+        "--token",
+        default=os.environ.get("WEB_PROXY_TOKEN", ""),
+        help="访问口令（也可用 WEB_PROXY_TOKEN）；非空时除 /health 外都要带 Authorization: Bearer <口令>",
+    )
     args = parser.parse_args(argv)
 
     MAX_RESULTS = args.max_results
 
     import uvicorn
 
-    app = create_app(args.upstream)
+    app = create_app(args.upstream, token=args.token)
     banner = [
         f"联网代理已启动：http://{args.host}:{args.port}/v1",
         f"上游模型：{args.upstream}/v1",
         "把客户端的 base_url 指到上面那个地址即可；请求头 X-Web-Search: off 可以临时关闭联网。",
     ]
+    if args.token:
+        banner.append("访问口令：已启用（客户端把 api_key 填成这个串就行）")
+    elif args.host not in ("127.0.0.1", "localhost", "::1"):
+        banner.append(f"警告：监听在 {args.host} 且没有口令，同网段任何人都能刷这个代理——请设 --token")
     print("\n".join(banner), flush=True)
     uvicorn.run(app, host=args.host, port=args.port, log_level="warning")
     return 0

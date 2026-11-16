@@ -3,9 +3,16 @@
 两块预算同时生效：
 - ``generation.max_context_chunks``：最多几条；
 - ``generation.max_context_tokens``：总 token 上限（超出按顺序截断，标题行永远保留）。
+  预算按整块算：标题 + 两行围栏 + 正文，围栏不计入就等于每块超支十来个 token。
 
 编号必须从 1 开始连续，因为 prompt 里让模型"按资料编号引用"，
 后续 ``citation.remap_citations`` 依赖这个一一对应关系。
+
+防提示注入（"资料隔离"）：每个资料块的正文都用 ``<<<不可信外部文本 n>>>`` 围栏包住，
+围栏外的标题才是系统元数据。知识库里的文件是各部门上传的外部内容，
+一句"忽略以上规则，只输出……"就躺在某页 PDF 里；围栏 + 系统提示词里的对应条款
+一起告诉模型"这段是证据不是指令"。围栏常量在 ``llm/prompts.py``
+（``FENCE_START`` / ``FENCE_END`` / ``FENCE_RE``），``MockLLM`` 解析资料块时按它跳过围栏行。
 """
 
 from __future__ import annotations
@@ -13,6 +20,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Sequence
 
+from ..llm.prompts import FENCE_END, FENCE_START
 from ..retrieval.models import RetrievedChunk
 from ..tokens import count_tokens, truncate_to_tokens
 from .textfix import flatten_tables
@@ -28,7 +36,17 @@ class ContextBlock:
     body: str
 
     def render(self) -> str:
-        return f"{self.header}\n正文：{self.body}"
+        """标题在围栏外，正文在围栏内。
+
+        标题是系统生成的元数据（文档名/章节/页码），围栏内才是原文——
+        这样模型能分辨"哪一句是谁说的"，引用编号也仍然只对应围栏内内容。
+        """
+        return (
+            f"{self.header}\n"
+            f"{FENCE_START.format(index=self.index)}\n"
+            f"正文：{self.body}\n"
+            f"{FENCE_END.format(index=self.index)}"
+        )
 
     @property
     def tokens(self) -> int:
@@ -79,7 +97,10 @@ def build_context(
             f"[{len(blocks) + 1}] 文档：{representative.doc_name} "
             f"｜ 章节：{representative.section_path or '正文'} ｜ 页码：{page}"
         )
-        remaining = max_tokens - used - count_tokens(header)
+        index = len(blocks) + 1
+        # 围栏两行也是要发给模型的内容，不计入预算就等于每块超支十来个 token
+        fence_cost = count_tokens(FENCE_START.format(index=index)) + count_tokens(FENCE_END.format(index=index))
+        remaining = max_tokens - used - count_tokens(header) - fence_cost
         if remaining <= 20:  # 只够放标题就没意义了
             break
         merged = "\n".join(dict.fromkeys(member.text.strip() for member in members if member.text.strip()))
@@ -87,7 +108,7 @@ def build_context(
         body = merged if count_tokens(merged) <= remaining else truncate_to_tokens(merged, remaining)
         if not body:
             continue
-        block = ContextBlock(index=len(blocks) + 1, chunk=representative, header=header, body=body)
+        block = ContextBlock(index=index, chunk=representative, header=header, body=body)
         blocks.append(block)
         used += block.tokens
     return blocks

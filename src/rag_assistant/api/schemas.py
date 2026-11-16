@@ -28,7 +28,8 @@ class ChatRequest(BaseModel):
         default=None,
         ge=0.0,
         le=1.0,
-        description="覆盖相关性阈值（不传则用配置值）；证据不足时拒答",
+        description="仅管理员可用的阈值覆盖；其他角色一律忽略，用 server 配置的 "
+        "retrieval.score_threshold（防把拒答闸门关掉）",
     )
 
 

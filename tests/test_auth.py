@@ -34,6 +34,12 @@ USERS_YAML = """users:
     department: 教务处
     password: "{dept_hash}"
     active: true
+  - id: admin
+    name: 运维
+    role: admin
+    department: ""
+    password: "{admin_hash}"
+    active: true
   - id: gone
     name: 停用账号
     role: dept
@@ -62,7 +68,9 @@ def test_same_password_gets_different_salt() -> None:
 def test_user_store_and_authenticate(tmp_path: Path) -> None:
     path = tmp_path / "users.yaml"
     path.write_text(
-        USERS_YAML.format(student_hash=hash_password("s1"), dept_hash=hash_password("d1")),
+        USERS_YAML.format(
+            student_hash=hash_password("s1"), dept_hash=hash_password("d1"), admin_hash=hash_password("a1")
+        ),
         encoding="utf-8",
     )
     store = UserStore(path)
@@ -99,7 +107,9 @@ def auth_settings(mock_settings: Settings, tmp_path: Path) -> Settings:
     path = tmp_path / "config" / "users.yaml"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
-        USERS_YAML.format(student_hash=hash_password("s1"), dept_hash=hash_password("d1")),
+        USERS_YAML.format(
+            student_hash=hash_password("s1"), dept_hash=hash_password("d1"), admin_hash=hash_password("a1")
+        ),
         encoding="utf-8",
     )
     return replace(
@@ -283,3 +293,33 @@ def test_missing_users_file_can_be_allowed_explicitly(
     app = create_app(settings)
     with TestClient(app) as client:
         assert client.get("/health").status_code == 200
+
+
+@pytest.fixture()
+def kb_auth_client(auth_settings: Settings, sample_raw_dir: Path):
+    """开了鉴权、建好索引的客户端：角色差异要打到 ``/chat`` 才看得见。"""
+    kb = KnowledgeBase(auth_settings)
+    kb.sync()
+    app = create_app(auth_settings, chat_service=ChatService(auth_settings, kb=kb))
+    with TestClient(app) as client:
+        yield client
+
+
+def test_normal_user_cannot_move_refusal_gate(kb_auth_client: TestClient) -> None:
+    """阈值收权端到端：普通用户传高阈值关不掉拒答，管理员传了才算数。
+
+    服务端阈值在 mock 链路是 0.20，"图书馆几点开门？"在示例语料里最高分 0.3125：
+    不传时放行；传 0.9 若生效就会拒答。两个角色各发一次，谁的话作数一目了然。
+    """
+    question = "图书馆几点开门？"
+    login(kb_auth_client, "20230001", "s1")
+    student = kb_auth_client.post(
+        "/chat", json={"session_id": "s-gate", "question": question, "threshold": 0.9}
+    ).json()
+    assert student["refused"] is False, "客户端阈值应被忽略，按服务端 0.20 判为有依据"
+
+    login(kb_auth_client, "admin", "a1")
+    admin = kb_auth_client.post(
+        "/chat", json={"session_id": "a-gate", "question": question, "threshold": 0.9}
+    ).json()
+    assert admin["refused"] is True, "管理员覆盖必须生效，否则评测没法扫阈值做消融"

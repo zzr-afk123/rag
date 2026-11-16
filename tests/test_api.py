@@ -96,6 +96,30 @@ def test_chat_refusal(client: TestClient) -> None:
     assert payload["refusal_reason"]
 
 
+def test_threshold_override_is_admin_only() -> None:
+    """客户端不能把拒答闸门关掉——"关闸门"那一项消融的可信度前提在这里。
+
+    以前 ``threshold`` 是请求体字段，任何登录者传 0 就能让弱资料成答；现在只有管理员
+    能覆盖，其余角色返回 ``None`` = 用服务端 ``retrieval.score_threshold``。
+    端到端的角色行为见 ``tests/test_auth.py::test_normal_user_cannot_move_refusal_gate``。
+    """
+    from types import SimpleNamespace
+
+    from rag_assistant.api.routes.chat import _threshold
+
+    def _request(role: str | None):
+        user = None if role is None else SimpleNamespace(role=role)
+        return SimpleNamespace(state=SimpleNamespace(user=user))
+
+    def _body(value):
+        return SimpleNamespace(threshold=value)
+
+    assert _threshold(_request("admin"), _body(0.9)) == 0.9
+    assert _threshold(_request("admin"), _body(None)) is None  # 没传也交给服务端配置
+    for role in (None, "guest", "student", "dept"):
+        assert _threshold(_request(role), _body(0.9)) is None, role
+
+
 def test_chat_validation(client: TestClient) -> None:
     """空问题 / 超长问题 / 非法阈值都应由 pydantic 拦下（422）。"""
     assert client.post("/chat", json={"session_id": "s", "question": ""}).status_code == 422

@@ -19,7 +19,7 @@ from typing import Iterator, Sequence
 
 from ..tokens import count_tokens
 from .base import LLMClient, LLMResponse, LLMMessage, LLMUsage
-from .prompts import TASK_ANSWER, TASK_REWRITE, TASK_SUMMARY, task_of
+from .prompts import FENCE_RE, TASK_ANSWER, TASK_REWRITE, TASK_SUMMARY, task_of
 
 #: 指代开头
 _PRONOUN = re.compile(r"^(那么|那|这个|那个|该|上述|此|它|其中|这些|那些)[的]?")
@@ -265,6 +265,9 @@ class MockLLM(LLMClient):
         current: dict[str, str] | None = None
         for line in payload.splitlines():
             stripped = line.strip()
+            # 资料围栏是系统加的隔离标记，不能混进正文（否则引用摘录会带上尖括号）
+            if FENCE_RE.match(stripped):
+                continue
             header = _BLOCK_HEADER.match(stripped)
             if header:
                 number, doc, section, page = header.groups()

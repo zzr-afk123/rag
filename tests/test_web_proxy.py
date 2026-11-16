@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 
@@ -253,24 +254,30 @@ def test_with_web_tells_model_when_nothing_found() -> None:
 # 缓存与接口
 # --------------------------------------------------------------------------
 def test_research_caches_repeated_query(monkeypatch: pytest.MonkeyPatch, fake_results: list[SearchResult]) -> None:
-    calls = {"bing": 0, "enrich": 0}
+    """缓存的是 ``research``：同一句第二次不许再打搜索引擎。
 
-    def fake_bing(query: str, *, limit: int = 4) -> list[SearchResult]:
-        calls["bing"] += 1
+    以前这里只 patch ``bing_search``，"两个结果都不够相关"时 ``search_web`` 会
+    掉进 360 兜底——于是这个测试其实在联网，机器不通 DNS 就随机失败。
+    改成 patch ``search_web``，把被测面收窄到缓存本身。
+    """
+    calls = {"search": 0, "enrich": 0}
+
+    def fake_search(query: str, *, limit: int = 4) -> list[SearchResult]:
+        calls["search"] += 1
         return list(fake_results)
 
     def fake_enrich(results, *, workers: int = 4):
         calls["enrich"] += 1
         return list(results)
 
-    monkeypatch.setattr(web_proxy, "bing_search", fake_bing)
+    monkeypatch.setattr(web_proxy, "search_web", fake_search)
     monkeypatch.setattr(web_proxy, "enrich", fake_enrich)
     web_proxy._CACHE._data.clear()
 
     first = research("郑州大学 2026 年招生计划")
     second = research("郑州大学 2026 年招生计划")
     assert first.ok and second.ok
-    assert calls["bing"] == 1
+    assert calls["search"] == 1
     assert second.cached is True
 
 
@@ -294,3 +301,93 @@ def test_health_reports_upstream() -> None:
         payload = client.get("/health").json()
     assert payload["status"] == "ok"
     assert payload["upstream"] == "http://127.0.0.1:1234"
+
+
+# --------------------------------------------------------------------------
+# 出站闸门（SSRF）与代理口令
+# --------------------------------------------------------------------------
+def _public_dns(host: str, port: int, **_kw):
+    """把任意查询解析成一个公网地址，用来验证"放行的是正常站点"。
+
+    用 ``8.8.8.8`` 而不是文档段 ``203.0.113.x``：Python 的 ``is_private``
+    把三个 documentation 段也算作私有，用它们会测出假失败。
+    """
+    return [(2, 1, 6, "", ("8.8.8.8", port))]
+
+
+def test_is_safe_url_blocks_internal_targets(monkeypatch: pytest.MonkeyPatch) -> None:
+    """代理和 RAG 服务同机：内网地址、云元数据、非 http 协议都不许抓。"""
+    monkeypatch.setattr(web_proxy.socket, "getaddrinfo", _public_dns)
+    blocked = [
+        "file:///etc/passwd",
+        "http://127.0.0.1:8000/console",
+        "http://localhost:1234/v1/models",
+        "http://169.254.169.254/latest/meta-data/iam/",
+        "http://10.0.0.8/",
+        "http://[::1]:8000/",
+        "gopher://example.com:11211/",
+        "",
+    ]
+    for url in blocked:
+        assert web_proxy.is_safe_url(url) is False, url
+    assert web_proxy.is_safe_url("https://www.zzu.edu.cn/") is True
+
+
+def test_is_safe_url_blocks_name_resolving_to_loopback(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``kb.internal`` 这种"名字看不出问题"的域名，解析到内网一样拦掉。"""
+    monkeypatch.setattr(
+        web_proxy.socket,
+        "getaddrinfo",
+        lambda host, port, **_kw: [(2, 1, 6, "", ("127.0.0.1", port))],
+    )
+    assert web_proxy.is_safe_url("https://kb.internal.example/") is False
+
+
+def test_fetch_page_never_touches_httpx_for_internal_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    def boom(*_a, **_kw):
+        raise AssertionError("闸门失效：内网地址被真的请求了")
+
+    monkeypatch.setattr(web_proxy.httpx, "get", boom)
+    assert web_proxy.fetch_page("http://127.0.0.1:8000/console") == ""
+
+
+def test_fetch_page_stops_at_redirect_to_internal(monkeypatch: pytest.MonkeyPatch) -> None:
+    """第一跳公网、第二跳回环：重定向必须逐跳复检，否则闸门形同虚设。"""
+    hops: list[str] = []
+
+    def fake_get(url, *_a, **_kw):
+        hops.append(url)
+        if url == "https://good.example/":
+            return httpx.Response(302, headers={"location": "http://127.0.0.1:8000/console"})
+        raise AssertionError(f"不该请求：{url}")
+
+    monkeypatch.setattr(web_proxy.socket, "getaddrinfo", _public_dns)
+    monkeypatch.setattr(web_proxy.httpx, "get", fake_get)
+    assert web_proxy.fetch_page("https://good.example/") == ""
+    assert hops == ["https://good.example/"]
+
+
+def test_proxy_requires_token_when_configured(monkeypatch: pytest.MonkeyPatch) -> None:
+    """开了口令：没带、带错都 401；``Authorization: Bearer`` 与 ``X-Proxy-Token`` 都收；/health 保持公开。"""
+    monkeypatch.setattr(
+        web_proxy,
+        "research",
+        lambda question, limit=4: WebContext(query=question, results=[]),
+    )
+    app = web_proxy.create_app("http://127.0.0.1:9", token="s3cret-token")
+    with TestClient(app) as client:
+        body = {"query": "郑州大学"}
+        assert client.post("/v1/web/search", json=body).status_code == 401
+        assert client.post("/v1/web/search", json=body, headers={"X-Proxy-Token": "nope"}).status_code == 401
+        assert client.post(
+            "/v1/web/search", json=body, headers={"Authorization": "Bearer s3cret-token"}
+        ).status_code == 200
+        assert client.post("/v1/web/search", json=body, headers={"X-Proxy-Token": "s3cret-token"}).status_code == 200
+        assert client.get("/health").status_code == 200
+
+
+def test_proxy_without_token_stays_open_for_local_demo() -> None:
+    """默认不设口令（只监听 127.0.0.1）时行为不变，本地演示不用配 api_key。"""
+    app = web_proxy.create_app("http://127.0.0.1:9")
+    with TestClient(app) as client:
+        assert client.get("/health").status_code == 200

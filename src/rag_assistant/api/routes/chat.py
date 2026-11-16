@@ -54,13 +54,30 @@ def _owner(request: Request) -> str | None:
     return getattr(user, "id", None) or None
 
 
+def _threshold(request: Request, body: ChatRequest) -> float | None:
+    """相关性阈值以**服务端配置**为准，客户端只能建议。
+
+    ``threshold=0`` 等于把"证据不足就拒答"这道闸门整个关掉：问天气也能拿实验室条款硬答，
+    注入者还能用它把闸门 1 旁路掉做对比测试。评测与运维确实要扫阈值，
+    所以保留管理员覆盖；其余角色（含未开鉴权时的匿名请求）返回 ``None``，
+    由 ``ChatService`` 回落 ``settings.retrieval.score_threshold``。
+    """
+    if body.threshold is None:
+        return None
+    user = getattr(request.state, "user", None)
+    if getattr(user, "role", "") == "admin":
+        return body.threshold
+    logger.info("忽略客户端传入的阈值 %.2f（非管理员），改用 settings.retrieval.score_threshold", body.threshold)
+    return None
+
+
 @router.post("/chat", response_model=ChatResponse, summary="问答（同步）")
 def chat(
     body: ChatRequest, request: Request, service: ChatService = Depends(get_chat)
 ) -> ChatResponse:
     """一次性返回完整回答与引用来源。"""
     reply = service.chat(
-        body.session_id, body.question, threshold=body.threshold, owner=_owner(request)
+        body.session_id, body.question, threshold=_threshold(request, body), owner=_owner(request)
     )
     return ChatResponse.from_reply(reply)
 
@@ -75,7 +92,10 @@ def chat_stream(
     def generate() -> Iterator[str]:
         try:
             for event in service.chat_stream(
-                body.session_id, body.question, threshold=body.threshold, owner=owner
+                body.session_id,
+                body.question,
+                threshold=_threshold(request, body),
+                owner=owner,
             ):
                 yield _sse_frame(event)
         except Exception as exc:  # noqa: BLE001 - 流已开始，只能以事件形式报错

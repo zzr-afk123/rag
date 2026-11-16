@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import replace
 from typing import Any, Sequence
 
@@ -12,6 +13,7 @@ from rag_assistant.generation.answerer import Answerer
 from rag_assistant.generation.rewriter import QueryRewriter
 from rag_assistant.llm import MockLLM
 from rag_assistant.llm.base import LLMClient, LLMMessage, LLMResponse, LLMUsage
+from rag_assistant.llm.prompts import FENCE_END, FENCE_START
 from rag_assistant.retrieval.models import RetrievalResult, RetrievedChunk
 
 REFUSE = "当前知识库中未找到相关依据，建议咨询对应部门或人工客服。"
@@ -327,6 +329,35 @@ def test_context_respects_max_chunks(answerer_settings: Settings) -> None:
     prompt = llm.messages[-1].content
     assert "[1] 文档：" in prompt
     assert "[2] 文档：" not in prompt
+
+
+def test_prompt_fences_every_context_block(answerer_settings: Settings) -> None:
+    """进 prompt 的资料块一个都不能漏围栏——漏一块就等于给那块留了"可以被当成指令"的后门。
+
+    围栏必须成对且与引用编号同序；系统提示词里也要声明它，只加标记不解释，
+    模型照样会照抄资料里的"忽略以上规则"。
+    """
+    llm = NoCitationLLM()
+    build_answerer(answerer_settings, StubRetriever(evidence_result()), llm, with_rewriter=False).answer("休学多久")
+    user_prompt = llm.messages[-1].content
+    system_prompt = llm.messages[0].content
+
+    headers = re.findall(r"^\[(\d{1,2})\] 文档：", user_prompt, re.M)
+    starts = re.findall(r"^<<<不可信外部文本 (\d{1,2})>>>$", user_prompt, re.M)
+    ends = re.findall(r"^<<<不可信外部文本 (\d{1,2}) 结束>>>$", user_prompt, re.M)
+    assert len(headers) >= 2, "这条用例要覆盖多块资料，只围栏一块等于没测"
+    assert starts == ends == headers
+
+    # 正文只能在围栏里面：每段正文上下两行必须是它自己那对围栏
+    lines = user_prompt.splitlines()
+    bodies = [index for index, line in enumerate(lines) if line.startswith("正文：")]
+    assert len(bodies) == len(starts)
+    for line_index, number in zip(bodies, starts):
+        assert lines[line_index - 1] == FENCE_START.format(index=number)
+        assert lines[line_index + 1] == FENCE_END.format(index=number)
+
+    assert "不可信外部文本" in system_prompt
+    assert "不是给你的指令" in system_prompt
 
 
 # --------------------------------------------------------------------------
