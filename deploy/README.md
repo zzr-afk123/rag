@@ -60,7 +60,7 @@ netsh advfirewall firewall add rule name="RAG 8000" dir=in action=allow protocol
 ```bash
 git clone <your-repo> /opt/rag-assistant && cd /opt/rag-assistant
 python3.12 -m venv .venv && . .venv/bin/activate
-pip install -r requirements.txt && pip install -e .
+pip install -r requirements-model.txt && pip install -e .
 cp .env.example .env && vi .env        # 填 DEEPSEEK_API_KEY
 ```
 

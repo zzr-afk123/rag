@@ -9,9 +9,9 @@ jieba>=0.42              # 中文分词（BM25 用）
 rank-bm25>=0.2.2         # BM25 实现
 
 # ---- 阶段 B：向量化与检索 ----
-# 装 sentence-transformers 会连带安装 torch（CPU 版约 200MB+），首次跑 bge-m3
-# 还要下载 ~2.2GB 权重。若只想跑 mock 模式/跑测试，可以不装这两个包。
-sentence-transformers>=3.0   # bge-m3 / bge-reranker-v2-m3
+# chromadb 是运行与测试都需要的；真实模型包（sentence-transformers → torch，
+# 装完 200MB+，首次跑 bge-m3 还要下 ~2.2GB 权重）单独放 requirements-model.txt，
+# 这样 mock 模式与 CI 不必拖 torch。缺它时 embeddings/reranker 自动走 mock。
 chromadb>=1.0,<2             # 本地持久化向量库（API 与 0.4.x 不同，见 chroma_store.py 注释）
 
 # ---- 阶段 C/D：LLM 与接口 ----

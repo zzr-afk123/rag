@@ -18,9 +18,10 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt ./
+COPY requirements.txt requirements-model.txt ./
+# 镜像是给用户跑真模型的，所以这里装全套（requirements-model.txt 含 sentence-transformers）
 RUN pip install --index-url https://download.pytorch.org/whl/cpu torch \
-    && pip install -r requirements.txt
+    && pip install -r requirements-model.txt
 
 COPY . .
 

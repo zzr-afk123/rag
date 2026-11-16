@@ -67,7 +67,9 @@ if not exist ".venv\Scripts\python.exe" (
     )
     echo [2/6] Installing dependencies - first run takes a few minutes ...
     ".venv\Scripts\python.exe" -m pip install --upgrade pip >nul 2>nul
-    ".venv\Scripts\python.exe" -m pip install -r requirements.txt
+    rem requirements-model.txt = 核心依赖 + sentence-transformers（真实向量/精排）。
+    rem 只装 requirements.txt 会缺 bge-m3，运行时会静默降级成 mock 模式。
+    ".venv\Scripts\python.exe" -m pip install -r requirements-model.txt
     if errorlevel 1 (
         echo [X] pip install failed. See the error above.
         pause

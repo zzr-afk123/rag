@@ -72,13 +72,13 @@ python -m venv .venv
 
 # torch 必须用 CPU 轮子，否则默认会拉 2.5GB 的 CUDA 依赖
 pip install torch --index-url https://download.pytorch.org/whl/cpu
-pip install -r requirements.txt
+pip install -r requirements-model.txt   # = requirements.txt + sentence-transformers
 pip install -e .          # 让 `python -m rag_assistant...` 与 `rag-api` 可用
 ```
 
 > 不想装 torch / 不打算用真实模型？可以只跑模式 A：
-> `pip install -r requirements.txt` 里 torch 不在其中（torch 是 sentence-transformers 的依赖），
-> 直接跳过第一行 pip 也可以，运行时设 `RAG_FORCE_MOCK=1`。
+> `pip install -r requirements.txt`（不含 sentence-transformers，因而不会拖进 torch），
+> 运行时设 `RAG_FORCE_MOCK=1`。CI 用的就是这一套。
 
 ## 2. 配置
 

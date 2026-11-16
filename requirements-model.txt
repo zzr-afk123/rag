@@ -1,0 +1,8 @@
+# 真实模型栈：要跑 bge-m3 向量与 bge-reranker 精排时才需要装（会连带 torch）。
+# mock 模式与 CI 只装 requirements(-dev).txt 即可——embeddings/bge.py 与
+# retrieval/reranker.py 里的 import 都在函数内部，缺包时自动降级为 mock。
+#
+# 装之前先用 CPU 轮子，否则默认拉 2.5GB 的 CUDA 依赖：
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+-r requirements.txt
+sentence-transformers>=3.0   # bge-m3 / bge-reranker-v2-m3
