@@ -3,17 +3,16 @@ __pycache__/
 .venv/
 venv/
 .env
-# 账号库只存 PBKDF2 哈希，但哈希本身即凭据（可离线爆破），不入库；模板见 users.yaml.example
+# 鐠愶箑褰挎惔鎾冲涧鐎?PBKDF2 閸濆牆绗囬敍灞肩稻閸濆牆绗囬張顒冮煩閸楀啿鍤熼幑顕嗙礄閸欘垳顬囩痪璺ㄥ瀻閻揪绱氶敍灞肩瑝閸忋儱绨遍敍娑櫮侀弶鑳潌 users.yaml.example
 config/users.yaml
 config/*.local.yaml
 data/index/
-# bench 评测库的索引同样可重建，且 chroma 里有 782 条向量，别塞进 git
+# bench 鐠囧嫭绁存惔鎾舵畱缁便垹绱╅崥灞剧壉閸欘垶鍣稿鐚寸礉娑?chroma 闁插本婀?782 閺夆€虫倻闁插骏绱濋崚顐㈩敚鏉?git
 data/bench/index/
-# 公开集（T2Ranking parquet + 向量缓存）几百 MB，重建只要一条命令
-data/external/
+# 閸忣剙绱戦梿鍡礄T2Ranking parquet + 閸氭垿鍣虹紓鎾崇摠閿涘鍤戦惂?MB閿涘矂鍣稿鍝勫涧鐟曚椒绔撮弶鈥虫嚒娴?data/external/
 data/raw_history/
 logs/
-# 报告里的图片不入库，markdown 报告要随仓：README 里引用的每个数字都得能在 clone 下来看到
+# 閹躲儱鎲￠柌宀€娈戦崶鍓у娑撳秴鍙嗘惔鎿勭礉markdown 閹躲儱鎲＄憰渚€娈㈡禒鎿勭窗README 闁插苯绱╅悽銊ф畱濮ｅ繋閲滈弫鏉跨摟闁棄绶遍懗钘夋躬 clone 娑撳娼甸惇瀣煂
 reports/**/*.png
 reports/*.png
 .pytest_cache/
@@ -22,6 +21,11 @@ htmlcov/
 *.egg-info/
 build/
 dist/
-# 模型缓存不入库
-.cache/
+# 濡€崇€风紓鎾崇摠娑撳秴鍙嗘惔?.cache/
 models/
+
+# 璇勬祴鑴氭湰鐨勬湰鍦拌緭鍑猴紙鎶ュ憡宸插綊妗ｅ埌 reports/锛?eval_http_out.*
+
+# 外部数据集与评测产物（用 scripts/fetch_t2ranking.py 拉取，不入库）
+data/external/
+*.parquet
