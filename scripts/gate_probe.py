@@ -67,6 +67,8 @@ class Probe:
     has_evidence: bool
     reason: str
     top_doc: str
+    #: 实际拿到的候选条数：检索层把"一路都没召回"也算没证据，重放必须复现这一条。
+    n_chunks: int = 0
     #: 本次跑的精排是不是 mock。放宽的前提要一题一题记下来，
     #: 否则扫描表会承诺一个线上拿不到的行为（mock 分数与 sigmoid 精排分不同尺度）。
     reranker_mock: bool = False
@@ -144,6 +146,7 @@ def probe_all(paths: Sequence[Path]) -> tuple[list[Probe], dict[str, Any]]:
                     has_evidence=result.has_evidence,
                     reason=str(diag.get("reason") or ""),
                     top_doc=result.chunks[0].doc_id if result.chunks else "-",
+                    n_chunks=len(result.chunks),
                     reranker_mock=bool(reranker is not None and reranker.is_mock),
                 )
             )
@@ -163,18 +166,28 @@ def probe_all(paths: Sequence[Path]) -> tuple[list[Probe], dict[str, Any]]:
     return probes, env
 
 
+def decide(probe: Probe, threshold: float, min_coverage: float, relax_line: float) -> bool:
+    """给定参数下这题会不会被拒——判定顺序与 `retrieval/retriever.py::_retrieve` 一致。
+
+    先看有没有候选，再看分数，最后看词面覆盖（覆盖只在**未被放宽**时才参与）。
+    """
+    if probe.n_chunks == 0:
+        return True
+    relaxed = bool(relax_line > 0 and probe.relax_available and probe.best_score >= relax_line)
+    off_topic = bool(min_coverage > 0 and not relaxed and probe.content_tokens > 0
+                     and probe.coverage < min_coverage)
+    return bool(probe.best_score < threshold or off_topic)
+
+
 def simulate(probes: Sequence[Probe], threshold: float, min_coverage: float, relax_line: float) -> dict[str, int]:
     """按给定放宽线重放判定：`relax_line=0` 表示永不放宽（旧行为）。
 
-    三个参数都从配置取，重放用的判定顺序与 `retrieval/retriever.py::_retrieve` 一致：
-    先看分数，再看词面覆盖（覆盖够不够只在**未被放宽**时才起作用）。
+    扫描全部在**记录下来的字段**上离线算，不按每条线重跑检索——所以
+    `replay_mismatches()` 必须在当前配置下与真实判定完全一致，否则这张表是编的。
     """
     false_reject = correct_refuse = answered = leaked = 0
     for probe in probes:
-        relaxed = bool(relax_line > 0 and probe.relax_available and probe.best_score >= relax_line)
-        off_topic = bool(min_coverage > 0 and not relaxed and probe.content_tokens > 0
-                         and probe.coverage < min_coverage)
-        refused = probe.best_score < threshold or off_topic
+        refused = decide(probe, threshold, min_coverage, relax_line)
         if probe.should_refuse:
             correct_refuse += int(refused)
             leaked += int(not refused)
@@ -188,6 +201,20 @@ def simulate(probes: Sequence[Probe], threshold: float, min_coverage: float, rel
         "correct_refuse": correct_refuse,
         "leaked": leaked,
     }
+
+
+def replay_mismatches(
+    probes: Sequence[Probe], threshold: float, min_coverage: float, relax_line: float
+) -> list[Probe]:
+    """重放判定与检索层实际判定不一致的题。
+
+    这个脚本的价值全在"重放可信"上：如果记下来的分数/覆盖不足以复现 `has_evidence`，
+    那放宽线扫描表说的就不是线上会发生的事，而是一个平行宇宙。
+    """
+    return [
+        probe for probe in probes
+        if decide(probe, threshold, min_coverage, relax_line) == probe.has_evidence
+    ]
 
 
 def render(probes: Sequence[Probe], meta: dict[str, Any]) -> str:
@@ -242,7 +269,19 @@ def render(probes: Sequence[Probe], meta: dict[str, Any]) -> str:
             f"| {line}{mark} | {sim['false_reject']}/{len(answerable)} | {sim['answered']} "
             f"| {sim['correct_refuse']}/{len(refuse)} | {sim['leaked']} |"
         )
+    mismatches = replay_mismatches(
+        probes, float(meta["score_threshold"]), float(meta["min_lexical_coverage"]),
+        float(meta["coverage_relax_score"]),
+    )
     lines += [
+        "",
+        "重放自检："
+        + ("按当前配置重放，判定与检索层实际给出的 `has_evidence` 逐题一致——上面这张扫描表可信。"
+           if not mismatches else
+           f"按当前配置重放，有 **{len(mismatches)} 题**与检索层实际判定不一致（"
+           + "、".join(p.question[:14] for p in mismatches[:5])
+           + (" …" if len(mismatches) > 5 else "") + "）。"
+           "记下来的字段不足以复现线上判定（多半是判定顺序或某道闸门改了），扫描数字先别拿去用。"),
         "",
         "读法：往左移一格放宽线，通常同时**减少误拒**和**增加漏拒**，"
         "两个数各自的增量就是这道闸门的边际价格；把它们跟当前默认值对齐着看。",

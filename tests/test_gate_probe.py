@@ -112,6 +112,7 @@ def make_probe(**kwargs: Any) -> gp.Probe:
         has_evidence=True,
         reason="",
         top_doc="a.md",
+        n_chunks=1,
         reranker_mock=False,
     )
     payload.update(kwargs)
@@ -243,6 +244,25 @@ def test_no_content_tokens_means_no_coverage_gate() -> None:
     assert out["false_reject"] == 0
 
 
+def test_empty_candidate_list_refuses_even_with_zero_threshold() -> None:
+    """`has_evidence` 还有第三个条件：一路都没召回。重放漏掉它就会承诺线上不存在的答案。"""
+    probe = make_probe(best_score=0.90, coverage=0.9, n_chunks=0)
+    out = counters(gp.simulate([probe], threshold=0.0, min_coverage=0.0, relax_line=0.0))
+    assert out == {"false_reject": 1, "answered": 0, "correct_refuse": 0, "leaked": 0}
+
+
+def test_replay_check_catches_a_record_that_stopped_matching_the_retriever() -> None:
+    """扫描表的可信度全靠这条：重放判定必须与实际 has_evidence 逐题一致。"""
+    honest = [make_probe(best_score=0.60, coverage=0.5),
+              make_probe(best_score=0.40, coverage=0.5, has_evidence=False)]
+    assert gp.replay_mismatches(honest, threshold=0.55, min_coverage=0.30, relax_line=0.55) == []
+
+    # 把其中一题的实际判定反过来（模拟"检索层加了新闸门但重放没跟上"）
+    lying = [honest[0], make_probe(best_score=0.40, coverage=0.5, has_evidence=True, question="对不上的一题")]
+    bad = gp.replay_mismatches(lying, threshold=0.55, min_coverage=0.30, relax_line=0.55)
+    assert [p.question for p in bad] == ["对不上的一题"]
+
+
 # --------------------------------------------------------------------------
 # 分布描述
 # --------------------------------------------------------------------------
@@ -302,6 +322,15 @@ def test_render_marks_groups_and_the_current_default_line(meta: dict[str, Any]) 
     assert "| 0.55 ← |" in report, "扫描表要把当前默认值标出来，否则读者不知道哪格是现配置"
     assert "| 0.75 |" in report
     assert "- 1 题，最优分区间 0.580–0.580" in report, "§4 要把被词面闸门误拒的题数与分数区间写出来"
+
+
+def test_render_reports_the_replay_selfcheck(meta: dict[str, Any]) -> None:
+    report = gp.render([make_probe(best_score=0.60, coverage=0.5)], meta)
+    assert "逐题一致——上面这张扫描表可信" in report
+
+    broken = gp.render([make_probe(best_score=0.40, coverage=0.5, has_evidence=True, question="对不上的一题")], meta)
+    assert "有 **1 题**与检索层实际判定不一致" in broken
+    assert "扫描数字先别拿去用" in broken
 
 
 def test_render_reports_no_blocked_questions(meta: dict[str, Any]) -> None:
