@@ -50,6 +50,8 @@ class Row:
     overrides: tuple[str, ...] = ()
     #: 显式传给回答环节的阈值；None = 用配置里的 score_threshold
     threshold: float | None = None
+    #: main = README 主表引用的那几行；probe = 只为定参数做的实验档
+    kind: str = "main"
 
 
 ROWS: tuple[Row, ...] = (
@@ -67,6 +69,28 @@ ROWS: tuple[Row, ...] = (
         "阈值、词面覆盖、逐句校验全关：看闸门拦住了什么",
         ("retrieval.min_lexical_coverage=0", "generation.claim_check=off"),
         threshold=0.0,
+    ),
+    # ---- 以下只用于给默认阈值定档，不进 README 主表 ----
+    Row(
+        "阈值 0.45",
+        "阈值下调到 0.45、词面覆盖关掉：用更低的分数线换口语题的生路",
+        ("retrieval.min_lexical_coverage=0",),
+        threshold=0.45,
+        kind="probe",
+    ),
+    Row(
+        "阈值 0.40",
+        "阈值下调到 0.40、词面覆盖关掉：看误拒还能不能继续降、漏拒开始出现没有",
+        ("retrieval.min_lexical_coverage=0",),
+        threshold=0.40,
+        kind="probe",
+    ),
+    Row(
+        "只留逐句校验",
+        "阈值归零、词面覆盖关掉，只靠逐句校验拒答：验证 claim 环节能否独立承担拒答",
+        ("retrieval.min_lexical_coverage=0",),
+        threshold=0.0,
+        kind="probe",
     ),
 )
 

@@ -164,11 +164,11 @@ class RetrievalConfig:
     weight_bm25: float = 1.0
     enable_multi_query: bool = True
     multi_query: int = 3
-    score_threshold: float = 0.50
+    score_threshold: float = 0.45
     #: 进入 prompt 的资料块最低分：低于它的块不进上下文。
     #: 只按 best_score 判定"有依据"时，0.50 分的噪声块照样会进 prompt 被照抄；
     #: 0 表示不过滤（始终保留最高分那一块）。
-    context_min_score: float = 0.0
+    context_min_score: float = 0.45
     #: 词面覆盖闸门：问题里的**内容词**至少要有这个比例出现在召回片段里，
     #: 否则判定"与知识库无关"直接拒答（解决"问天气却答休学"）。
     #: 0 表示关闭。默认 0.30 偏保守——宁可多拒一次，也不硬答无关问题。
@@ -179,12 +179,11 @@ class RetrievalConfig:
     #: 于是 85% 的**可答题**被覆盖闸门判成 off_topic。词面重叠是"证据是否相关"的
     #: 廉价代理，交叉编码器是直接测量它——后者已经给出高置信时再要求字面重合，
     #: 等于让代理否决正主。
-    #: 取 0.55（= score_threshold）而不是拍脑袋的 0.75：真实 bge-reranker-v2-m3 在
-    #: 这 73 题上的 sigmoid 分最高只有 0.727，0.75 那条线一道题都没放宽过（等于没做）。
-    #: 同批题实测：不放宽 误拒 23/67、正确拒答 6/6；线=0.70 22/67、6/6；线=0.55 12/67、5/6。
-    #: 也就是说有可信精排分时，词面闸门只多挡住 1 道该拒的题，代价是误拒 11 道可答的题；
-    #: 而精排关掉时（gate=vector_cosine）它仍是唯一的跑题代理，所以保留闸门、只把放宽线对齐阈值。
-    coverage_relax_score: float = 0.55
+    #: 取 0.45（= score_threshold）：要让"精排已认"早于阈值生效。只把这条线降到 0.45
+    #: 而不动阈值时无用——0.45–0.55 那一段先被 below_threshold 拒掉，轮不到放宽
+    #: （reports/ablation-relax045.md：仍是 83.6%）。两条一起改才是 86.6%。
+    #: 精排关掉时（gate=vector_cosine）这条不生效，词面闸门仍是唯一的跑题代理。
+    coverage_relax_score: float = 0.45
     userdict_path: str = "config/jieba_userdict.txt"
     stopwords_path: str = "config/stopwords_zh.txt"
 

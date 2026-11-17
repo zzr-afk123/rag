@@ -13,7 +13,9 @@ data/bench/index/
 data/external/
 data/raw_history/
 logs/
-reports/
+# 报告里的图片不入库，markdown 报告要随仓：README 里引用的每个数字都得能在 clone 下来看到
+reports/**/*.png
+reports/*.png
 .pytest_cache/
 .coverage
 htmlcov/

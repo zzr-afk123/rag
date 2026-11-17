@@ -83,7 +83,7 @@ def test_each_row_changes_only_what_it_claims(row_name: str, expectations: dict[
 
 
 def test_rows_are_named_as_the_readme_table_claims() -> None:
-    assert [row.name for row in ab.ROWS] == [
+    assert [row.name for row in ab.ROWS if row.kind == "main"] == [
         "BM25 only",
         "向量 only",
         "+RRF",
@@ -91,13 +91,16 @@ def test_rows_are_named_as_the_readme_table_claims() -> None:
         "关词面闸门",
         "关闸门",
     ]
+    # 实验档不进主表，README 的数字不许引用它们
+    assert all(row.kind == "probe" for row in ab.ROWS if row.kind != "main")
 
 
 def test_refusal_gate_row_runs_with_threshold_zero() -> None:
     """关闸门行必须显式把阈值压到 0：否则 evaluate_item 仍按默认阈值拒答，闸门没关。"""
     row = next(item for item in ab.ROWS if item.name == "关闸门")
     assert row.threshold == 0.0
-    assert all(item.threshold is None for item in ab.ROWS if item.name != "关闸门")
+    assert all(item.threshold is None for item in ab.ROWS if item.name == "+rerank")
+    assert all(row.threshold is None for row in ab.ROWS if row.kind == "main" and row.name != "关闸门")
 
 
 # --------------------------------------------------------------------------

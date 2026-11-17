@@ -312,8 +312,11 @@ def main(argv: list[str] | None = None) -> int:
     with httpx.Client(base_url=args.base, timeout=180.0) as client:
         login = client.post("/auth/login", json={"id": args.user, "password": args.password})
         if login.status_code != 200:
-            print(f"登录失败：{login.status_code} {login.text}", file=sys.stderr)
-            return 2
+            guest = client.post("/auth/guest")
+            if guest.status_code != 200:
+                print(f"登录失败：{login.status_code} {login.text}", file=sys.stderr)
+                return 2
+            print("示例账号不可用，改用访客身份评测（只影响会话归属）", file=sys.stderr)
 
         results: list[Result] = []
         for index, case in enumerate(cases, start=1):

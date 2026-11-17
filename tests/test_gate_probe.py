@@ -155,8 +155,8 @@ def test_probe_all_records_what_the_gates_use(monkeypatch: pytest.MonkeyPatch, t
     # env 必须来自活着的 service，不能是另一份配置
     assert env["索引"] == "kb__bge-m3-1024｜782 chunk｜48 文档"
     assert env["Reranker"] == "BAAI/bge-reranker-v2-m3（mock=False）"
-    assert env["score_threshold"] == pytest.approx(0.55)
-    assert env["coverage_relax_score"] == pytest.approx(0.55)
+    assert env["score_threshold"] == pytest.approx(0.45)
+    assert env["coverage_relax_score"] == pytest.approx(0.45)
 
 
 def test_probe_all_flags_when_relaxation_is_unavailable(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
