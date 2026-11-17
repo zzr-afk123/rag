@@ -9,6 +9,8 @@ config/*.local.yaml
 data/index/
 # bench 评测库的索引同样可重建，且 chroma 里有 782 条向量，别塞进 git
 data/bench/index/
+# 公开集（T2Ranking parquet + 向量缓存）几百 MB，重建只要一条命令
+data/external/
 data/raw_history/
 logs/
 reports/
