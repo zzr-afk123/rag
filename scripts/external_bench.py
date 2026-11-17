@@ -66,12 +66,14 @@ DEFAULT_DIR = PROJECT_ROOT / "data" / "external" / "t2ranking"
 _TAG_RE = re.compile(r"<[^>]{0,40}>")
 _WS_RE = re.compile(r"\s+")
 
-# 官方 README 公布的 dev 集基线（全量 2,303,643 段语料池），照抄用于说明量级方向。
-# 来源：https://github.com/THUIR/T2Ranking （"Data Download" 下方的结果段）
+# 官方在数据集卡里逐条公布的 dev 基线（全量 2,303,643 段池子，QueriesRanked 24,831）。
+# 来源：https://hf-mirror.com/datasets/THUIR/T2Ranking 里 "BM25 on DEV set" 起的五段。
+# 2026-11-17 对着原始小数逐条核过——抄来的基线一旦没人核对，就会变成最像真话的假数字。
+# GitHub 原站在本机不可达，所以不引用它的 README。
 OFFICIAL_BASELINES = (
     ("BM25", "0.3589", "0.0510", "0.4943", "-"),
-    ("DPR（BM25 难负例）", "0.4856", "0.0737", "0.7099", "-"),
-    ("DPR（自挖难负例）", "0.5167", "0.0805", "0.7327", "-"),
+    ("DPR（无难负例）", "0.4856", "0.0737", "0.7099", "-"),
+    ("DPR（带难负例）", "0.5167", "0.0805", "0.7327", "-"),
     ("BM25 召回 + 交叉编码器重排", "0.5188", "0.0855", "0.5953", "0.4405"),
     ("DPR 召回 + 交叉编码器重排", "0.5509", "0.0890", "0.7394", "0.5131"),
 )
@@ -518,7 +520,7 @@ def render(rows: list[dict[str, Any]], meta: dict[str, Any]) -> str:
         )
     lines += [
         "",
-        "## 3. 官方 dev 基线（全量 2,303,643 段语料池，来自 THUIR/T2Ranking README）",
+        "## 3. 官方 dev 基线（全量 2,303,643 段池 / 24,831 题，数字照抄自 THUIR/T2Ranking 数据集卡）",
         "",
         "| 系统 | MRR@10 | Recall@1 | Recall@50 | nDCG@20 |",
         "|---|---|---|---|---|",
@@ -540,13 +542,15 @@ def render(rows: list[dict[str, Any]], meta: dict[str, Any]) -> str:
         )
     lines += [
         "",
-        "对比时请注意三件事：",
+        "对比时请注意四件事：",
         "",
         pool_note,
         "2. 官方 Recall@1 判的是「排第一的是不是正例」，与本表 Hit@1 同义；"
         "nDCG@20 与本表 nDCG@10 截断长度不同。",
         "3. 本表 BM25 用 BM25Plus + jieba（与线上检索器同一份代码），官方 BM25 是 pyserini + 中文分词器，"
         "词面这一路的地板高度不来自同一套参数。",
+        "4. 题集也不同：官方那几行跑的是 24,831 条 dev 问题，本表只能用镜像 parquet 里带标注的 "
+        f"{meta.get('题数', '?')} 条抽样，两边不是同一批问题。",
         "",
         "**能拿来下的结论只有相对关系**：哪一路是地板、融合值不值、精排值不值。",
         "",
@@ -635,6 +639,7 @@ def main(argv: list[str] | None = None) -> int:
         "题集": f"THUIR/T2Ranking dev（{len(cases)} 题，seed={args.seed}）",
         "语料池": f"{len(corpus):,} 段（来自 C-MTEB/T2Retrieval parquet，官方 collection 为 2,303,643 段）",
         "语料池段数": len(corpus),
+        "题数": len(cases),
         "标注": "qrels.retrieval.dev.tsv 二值判 Hit/MRR，qrels.dev.tsv 四级判 nDCG",
         "Embedding": f"{settings.embedding.model}（mock={embedder.is_mock}，device={getattr(embedder, 'device', '-')}）",
         "Reranker": f"{settings.reranker.model}（enabled={reranker is not None}）",
