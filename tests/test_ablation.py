@@ -57,6 +57,7 @@ def fake_result(item: ev.GoldenItem, *, rank: int | None, answer_rank: int | Non
         ("向量 only", {"retrieval.weight_vector": 1.0, "retrieval.weight_bm25": 0.0}),
         ("+RRF", {"reranker.enabled": False}),
         ("+rerank", {}),
+        ("关词面闸门", {"retrieval.min_lexical_coverage": 0.0}),
         ("关闸门", {"retrieval.min_lexical_coverage": 0.0, "generation.claim_check": "off"}),
     ],
 )
@@ -74,13 +75,22 @@ def test_each_row_changes_only_what_it_claims(row_name: str, expectations: dict[
     # 除"+rerank"是默认配置外，其余行必须真的改动过东西
     if row_name != "+rerank":
         assert applied, f"{row_name} 没产生任何覆盖，这行数字是假的"
-    if row_name != "关闸门":
+    # 没在参数里声明的旋钮必须保持默认，否则"这行只改了 X"这句话就是假的
+    if "generation.claim_check" not in expectations:
         assert settings.generation.claim_check == base.generation.claim_check
+    if "retrieval.min_lexical_coverage" not in expectations:
         assert settings.retrieval.min_lexical_coverage == base.retrieval.min_lexical_coverage
 
 
-def test_rows_are_five_and_named_for_readme() -> None:
-    assert [row.name for row in ab.ROWS] == ["BM25 only", "向量 only", "+RRF", "+rerank", "关闸门"]
+def test_rows_are_named_as_the_readme_table_claims() -> None:
+    assert [row.name for row in ab.ROWS] == [
+        "BM25 only",
+        "向量 only",
+        "+RRF",
+        "+rerank",
+        "关词面闸门",
+        "关闸门",
+    ]
 
 
 def test_refusal_gate_row_runs_with_threshold_zero() -> None:
@@ -168,6 +178,7 @@ def build_rows() -> list[dict[str, Any]]:
                     "weight_bm25": 0.0,
                     "reranker": True,
                     "min_lexical_coverage": 0.0,
+                    "coverage_relax_score": 0.55,
                     "score_threshold": row.threshold,
                     "claim_check": "off",
                 },

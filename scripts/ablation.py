@@ -58,6 +58,11 @@ ROWS: tuple[Row, ...] = (
     Row("+RRF", "两路融合、不重排", ("reranker.enabled=false",)),
     Row("+rerank", "完整链路（默认配置）"),
     Row(
+        "关词面闸门",
+        "只关掉词面覆盖（阈值与逐句校验照旧）：这道闸门单独值几道正确拒答",
+        ("retrieval.min_lexical_coverage=0",),
+    ),
+    Row(
         "关闸门",
         "阈值、词面覆盖、逐句校验全关：看闸门拦住了什么",
         ("retrieval.min_lexical_coverage=0", "generation.claim_check=off"),
@@ -97,6 +102,7 @@ def run_row(
             "weight_bm25": settings.retrieval.weight_bm25,
             "reranker": settings.reranker.enabled,
             "min_lexical_coverage": settings.retrieval.min_lexical_coverage,
+            "coverage_relax_score": settings.retrieval.coverage_relax_score,
             "score_threshold": row.threshold if row.threshold is not None else settings.retrieval.score_threshold,
             "claim_check": settings.generation.claim_check,
         },
@@ -153,13 +159,39 @@ def render(rows: list[dict[str, Any]], items: Sequence[ev.GoldenItem], meta: dic
     ]
     for row in rows:
         lines.append(_cell(row["name"], row["metrics"]))
-    lines += ["", "## 2. 每行实际生效的配置", "", "| 行 | 覆盖参数 | weight_vector | weight_bm25 | reranker | 词面覆盖 | 阈值 | claim_check |", "|---|---|---|---|---|---|---|---|"]
+
+    reason_kinds: list[str] = []
+    for row in rows:
+        for kind in row["metrics"].get("false_reject_reasons") or {}:
+            if kind not in reason_kinds:
+                reason_kinds.append(kind)
+    if reason_kinds:
+        lines += [
+            "",
+            "误拒是被哪道闸门拦下的（`off_topic` = 词面覆盖，`below_threshold` = 分数门槛，"
+            "`no_candidates` = 一路都没召回）。修法不一样，不能只看一个百分比：",
+            "",
+            "| 配置 | " + " | ".join(reason_kinds) + " |",
+            "|---|" + "---|" * len(reason_kinds),
+        ]
+        for row in rows:
+            reasons = row["metrics"].get("false_reject_reasons") or {}
+            lines.append("| " + row["name"] + " | " + " | ".join(str(reasons.get(kind, 0)) for kind in reason_kinds) + " |")
+
+    lines += [
+        "",
+        "## 2. 每行实际生效的配置",
+        "",
+        "| 行 | 覆盖参数 | weight_vector | weight_bm25 | reranker | 词面覆盖 | 覆盖放宽线 | 阈值 | claim_check |",
+        "|---|---|---|---|---|---|---|---|---|",
+    ]
     for row in rows:
         eff = row["effective"]
         lines.append(
             f"| {row['name']} | {'、'.join(row['applied']) or '（默认）'} "
             f"| {eff['weight_vector']} | {eff['weight_bm25']} | {eff['reranker']} "
-            f"| {eff['min_lexical_coverage']} | {eff['score_threshold']} | {eff['claim_check']} |"
+            f"| {eff['min_lexical_coverage']} | {eff['coverage_relax_score']} | {eff['score_threshold']} "
+            f"| {eff['claim_check']} |"
         )
 
     section = 2

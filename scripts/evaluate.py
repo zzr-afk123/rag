@@ -27,6 +27,7 @@
 from __future__ import annotations
 
 import argparse
+import collections
 import json
 import statistics
 import sys
@@ -314,6 +315,13 @@ def compute_metrics(results: Sequence[ItemResult]) -> dict[str, Any]:
         "refusal_recall": tp / (tp + fn) if (tp + fn) else 0.0,
         "refusal_precision": tp / (tp + fp) if (tp + fp) else 0.0,
         "false_reject_rate": fp / len(answerable) if answerable else 0.0,
+        # 误拒的题是**被哪道闸门**拦下的：off_topic（词面覆盖）和 below_threshold（分数）
+        # 的修法完全不同，混在一个百分比里就只能靠猜。
+        "false_reject_reasons": dict(
+            collections.Counter(
+                (r.refusal_reason or "unknown") for r in answerable if r.refused
+            )
+        ),
         "point_coverage": (covered / len(answer_points)) if answer_points else 0.0,
         "faithfulness": (
             sum(1 for r in judged if r.faithful) / len(judged) if judged else None
