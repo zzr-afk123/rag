@@ -114,5 +114,5 @@ def get_llm(settings: Settings) -> LLMClient:
     return _tag(
         MockLLM(refuse_text=settings.generation.refuse_text),
         f"没有 {config.api_key_env}，也没有配置 llm.fallback_*（本地模型）——回落到 mock，"
-        "回答是规则拼接的原文摘录；用「联网模型.bat」或「RAG 一键公网」启动即可接本地模型",
+        "回答是规则拼接的原文摘录；用「RAG 一键公网」启动即可接本地模型",
     )
