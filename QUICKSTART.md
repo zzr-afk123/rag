@@ -197,7 +197,7 @@ start-server.bat
 
 ```
 [4/5] Reachable URLs:
-      http://10.190.130.253:8000/
+      http://10.0.x.x:8000/          （示例，实际打印的是本机局域网地址）
       （以上为局域网地址，手机需连同一个 Wi-Fi）
 
       █▀▀▀▀▀▀▀████▀█▀██▀█▀▀▀▀▀▀▀█
@@ -304,9 +304,16 @@ $env:RAG_SERVER__RATE_LIMIT_PER_MIN  = "30"
 uvicorn rag_assistant.api.main:app --host 0.0.0.0 --port 8000
 
 # 3) 另开一个窗口做临时公网隧道（需先装 cloudflared）
-cloudflared tunnel --url http://127.0.0.1:8000
+cloudflared tunnel --url http://127.0.0.1:8000 --proxy-headers --forwarded-allow-ips "127.0.0.1"
 #   输出形如 https://xxx.trycloudflare.com —— 把它加上 ?token=你的串 发出去
 ```
+
+`--proxy-headers --forwarded-allow-ips "127.0.0.1"` 这两段不是装饰：cloudflared 就跑在本机，
+加了它们，应用才把隧道转发的 `X-Forwarded-For` 当真（限流按访客真实 IP、HTTPS 下 Cookie 自动
+带 `Secure`）。不加的话所有人共用隧道这一个 IP 的限流额度，Cookie 也会被当成明文连接处理。
+只有来自 `forwarded_allow_ips` 列出的地址的转发头才会被采信——写 `*` 等于允许任何人伪造来源 IP。
+
+令牌更稳妥的带法是请求头 `X-Access-Token`：`?token=` 会进浏览器历史、访问日志和 Referer。
 
 - 公众页：`/`（手机优先）；运维台：`/console`（公网部署请用网关挡住它）；
 - **不会被搜索引擎收录**：这个页面没有稳定域名与 sitemap，也不该公开索引；
@@ -320,7 +327,16 @@ cloudflared tunnel --url http://127.0.0.1:8000
 这类问题现在会被自动拦住，判据是"问句里的实词有没有在资料里出现过"：
 
 - 触发拒答时 `refusal_reason = off_topic`，回答里会写"该问题看起来不属于本知识库的范围"；
-- 如果**正常问题也被误拒**（例如换了种说法），把 `config/settings.yaml` 里的
-  `retrieval.min_lexical_coverage` 从 0.30 调低（例如 0.2），或设 0 关闭该层；
-- 如果**无关问题还能答**，调高到 0.4–0.5；
-- 调完重启服务生效；跑 `run-eval.bat` 可以看到"误拒/拒答准确率"的变化。
+- **口语化提问的误拒已经由 `retrieval.coverage_relax_score`（默认 0.55）处理**：精排分高到这条线
+  就不再要求字面重合。48 篇 / 73 题实测，这条线把口语题误拒从 23/67 压到 12/67，代价是正确拒答
+  6/6 → 5/6；把 `min_lexical_coverage` 直接调低或设 0 是更钝的办法，只多挡住 1 道该拒的题的闸门
+  一关就会漏更多；
+- 改之前先量，不要凭感觉调小数点：
+
+  ```powershell
+  python scripts\gate_probe.py --label bench --lines 0.0,0.5,0.55,0.6,0.65,0.7 `
+    --golden data\bench\golden_A.jsonl --out reports\gate-probe.md
+  ```
+
+  它会打印每题的分数与词面覆盖，并按放宽线重放判定（误拒几道、漏拒几道），不用改一次配置跑一次；
+- 调完重启服务生效；端到端的数字（含逐句校验与答案引用）跑 `run-eval.bat` 或 `python scripts\ablation.py`。

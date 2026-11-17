@@ -1,7 +1,7 @@
 # =========================================================
 # 账号库模板。复制为 config/users.yaml 后用自己的口令填充：
 #
-#   python scripts\manage_users.py init          # 生成示例账号（口令是 weak 默认值，启动会告警）
+#   python scripts\manage_users.py init          # 生成示例账号，口令随机、只打印一次并落 logs/credentials.txt
 #   python scripts\manage_users.py passwd --id admin --password '一个足够长的口令'
 #   python scripts\manage_users.py list
 #
