@@ -205,3 +205,127 @@ def test_lexical_gate_can_be_disabled(settings: Settings, repo_root: Path) -> No
     retriever = build_retriever(relaxed, repo_root, threshold=0.0)
     result = retriever.retrieve("郑州今天天气怎么样")
     assert result.diagnostics["off_topic"] is False
+
+
+# --------------------------------------------------------------------------
+# 精排高分放宽词面闸门（口语化提问不再被"字面没重合"判成跑题）
+# --------------------------------------------------------------------------
+class StubReranker:
+    """非 mock 的精排替身：只给一个可配置的常数分。
+
+    为什么要自己写：真实 CrossEncoder 不能在单测里加载，而 MockReranker 的
+    ``is_mock=True`` 恰好会被放宽逻辑排除，用它就测不到放宽那一条分支。
+    """
+
+    def __init__(self, score: float) -> None:
+        self._score = score
+
+    @property
+    def name(self) -> str:
+        return "stub"
+
+    @property
+    def is_mock(self) -> bool:
+        return False
+
+    def score(self, query: str, texts):  # noqa: ARG002 - 接口要求
+        return [self._score] * len(texts)
+
+
+def build(settings: Settings, repo_root: Path, reranker: object) -> HybridRetriever:
+    embedder = HashEmbedder(dim=128)
+    store = MemoryVectorStore()
+    tokenizer = ChineseTokenizer(
+        userdict_path=repo_root / "config" / "jieba_userdict.txt",
+        stopwords_path=repo_root / "config" / "stopwords_zh.txt",
+    )
+    bm25 = BM25Index(tokenizer)
+    vectors = embedder.embed_documents([text for _, _, text in CORPUS])
+    store.upsert(
+        [
+            VectorRecord(
+                chunk_id=chunk_id,
+                text=text,
+                metadata={"doc_id": doc_id, "doc_name": f"{doc_id}.md", "section_path": "章节", "page": 0},
+                embedding=vector,
+            )
+            for (chunk_id, doc_id, text), vector in zip(CORPUS, vectors)
+        ]
+    )
+    bm25.add([BM25Record(chunk_id=cid, text=text, metadata={"doc_id": doc}) for cid, doc, text in CORPUS])
+    return HybridRetriever(settings, embedder, store, bm25, reranker)
+
+
+def tune(settings: Settings, **retrieval_kwargs: object) -> Settings:
+    from dataclasses import replace as _replace
+
+    return _replace(settings, retrieval=_replace(settings.retrieval, score_threshold=0.0, **retrieval_kwargs))
+
+
+def test_high_rerank_score_relaxes_lexical_gate(settings: Settings, repo_root: Path) -> None:
+    """词面覆盖 0、精排 0.9 → 不再判 off_topic（这是修口语题误拒的那一步）。"""
+    retriever = build(tune(settings, coverage_relax_score=0.75), repo_root, StubReranker(0.9))
+    result = retriever.retrieve("郑州今天天气怎么样")
+
+    assert result.diagnostics["lexical_coverage"] < settings.retrieval.min_lexical_coverage
+    assert result.diagnostics["coverage_relaxed"] is True
+    assert result.diagnostics["coverage_floor"] == 0.0
+    assert result.diagnostics["off_topic"] is False
+    assert result.has_evidence is True
+
+
+def test_default_relax_line_is_reachable(settings: Settings, repo_root: Path) -> None:
+    """默认放宽线必须落在真实精排分够得着的地方。
+
+    这条是被自己坑出来的：先写了 0.75，73 题实测最高只有 0.727，
+    于是"已经修好口语题误拒"这句话在报告里挂了一整天，而数字一位都没变。
+    """
+    assert settings.retrieval.coverage_relax_score <= 0.60, (
+        "放宽线高于 bge-reranker 在这批题上的实际分数上限（≈0.73），等于没放宽"
+    )
+    retriever = build(settings, repo_root, StubReranker(0.58))
+    result = retriever.retrieve("郑州今天天气怎么样")
+
+    assert result.diagnostics["lexical_coverage"] < settings.retrieval.min_lexical_coverage
+    assert result.diagnostics["coverage_relaxed"] is True
+    assert result.diagnostics["off_topic"] is False
+    assert result.has_evidence is True
+
+
+def test_low_rerank_score_keeps_lexical_gate(settings: Settings, repo_root: Path) -> None:
+    """精排没过放宽线（0.6 < 0.75）时，词面闸门照旧挡：分数及格不等于问的是同一件事。"""
+    retriever = build(tune(settings, coverage_relax_score=0.75), repo_root, StubReranker(0.6))
+    result = retriever.retrieve("郑州今天天气怎么样")
+
+    assert result.diagnostics["coverage_relaxed"] is False
+    assert result.diagnostics["off_topic"] is True
+    assert result.diagnostics["reason"] == "off_topic"
+    assert result.has_evidence is False
+
+
+def test_mock_reranker_never_relaxes(settings: Settings, repo_root: Path) -> None:
+    """mock 精排的分数没有语义，不能拿它当放宽依据。"""
+    retriever = build(tune(settings, coverage_relax_score=0.75), repo_root, MockReranker())
+    result = retriever.retrieve("郑州今天天气怎么样")
+
+    assert result.diagnostics["coverage_relaxed"] is False
+    assert result.diagnostics["off_topic"] is True
+
+
+def test_relaxation_can_be_switched_off(settings: Settings, repo_root: Path) -> None:
+    """coverage_relax_score=0 关闭放宽，行为回到"只看词面覆盖"。"""
+    retriever = build(tune(settings, coverage_relax_score=0.0), repo_root, StubReranker(0.99))
+    result = retriever.retrieve("郑州今天天气怎么样")
+
+    assert result.diagnostics["coverage_relaxed"] is False
+    assert result.diagnostics["off_topic"] is True
+
+
+def test_vector_gate_is_never_relaxed(settings: Settings, repo_root: Path) -> None:
+    """没有精排时 gate 是 vector_cosine，放宽逻辑不参与（词面覆盖是唯一代理）。"""
+    tuned = tune(settings, coverage_relax_score=0.01)
+    retriever = build(tuned, repo_root, None)
+    result = retriever.retrieve("郑州今天天气怎么样")
+
+    assert result.diagnostics["gate"] == "vector_cosine"
+    assert result.diagnostics["coverage_relaxed"] is False

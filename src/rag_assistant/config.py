@@ -173,6 +173,18 @@ class RetrievalConfig:
     #: 否则判定"与知识库无关"直接拒答（解决"问天气却答休学"）。
     #: 0 表示关闭。默认 0.30 偏保守——宁可多拒一次，也不硬答无关问题。
     min_lexical_coverage: float = 0.30
+    #: 精排分数高到这个程度时，跳过词面覆盖闸门（0 = 永不跳过）。
+    #: 加这条是因为 48 篇合成语料 + 73 题实测：口语化提问（"年前攒的一沓票子
+    #: 一直忘了交"）的候选 Hit@1 有 92.6%，但内容词一个都不在原文里，
+    #: 于是 85% 的**可答题**被覆盖闸门判成 off_topic。词面重叠是"证据是否相关"的
+    #: 廉价代理，交叉编码器是直接测量它——后者已经给出高置信时再要求字面重合，
+    #: 等于让代理否决正主。
+    #: 取 0.55（= score_threshold）而不是拍脑袋的 0.75：真实 bge-reranker-v2-m3 在
+    #: 这 73 题上的 sigmoid 分最高只有 0.727，0.75 那条线一道题都没放宽过（等于没做）。
+    #: 同批题实测：不放宽 误拒 23/67、正确拒答 6/6；线=0.70 22/67、6/6；线=0.55 12/67、5/6。
+    #: 也就是说有可信精排分时，词面闸门只多挡住 1 道该拒的题，代价是误拒 11 道可答的题；
+    #: 而精排关掉时（gate=vector_cosine）它仍是唯一的跑题代理，所以保留闸门、只把放宽线对齐阈值。
+    coverage_relax_score: float = 0.55
     userdict_path: str = "config/jieba_userdict.txt"
     stopwords_path: str = "config/stopwords_zh.txt"
 
@@ -499,6 +511,8 @@ class Settings:
             raise ConfigError("retrieval.context_min_score 必须落在 [0, 1]（0 = 不过滤）")
         if not 0.0 <= r.min_lexical_coverage <= 1.0:
             raise ConfigError("retrieval.min_lexical_coverage 必须落在 [0, 1]（0 = 关闭该闸门）")
+        if not 0.0 <= self.retrieval.coverage_relax_score <= 1.0:
+            raise ConfigError("retrieval.coverage_relax_score 必须落在 [0, 1]（0 = 精排高分时不再跳过覆盖闸门）")
         if self.embedding.dim <= 0:
             raise ConfigError("embedding.dim 必须为正整数")
         if self.reranker.batch_size < 1:

@@ -70,6 +70,11 @@ retrieval:
   # 词面覆盖闸门：问句里的内容词至少要有这个比例出现在召回片段中，否则直接拒答。
   # 用于挡住"问天气却答休学"这类无关问题（分数阈值挡不住：检索永远会返回 top-k）。
   min_lexical_coverage: 0.30   # 0 = 关闭
+  # 精排分高到这个值时跳过上面的词面闸门（0 = 永不跳过）。
+  # 口语化提问的内容词常常一个都不在公文原文里，而候选 Hit@1 仍有 92.6%（73 题实测）。
+  # 取 0.55 = score_threshold：精排已经认了的块不再被字面重合否决；实测代价是
+  # 误拒 23/67 → 12/67、正确拒答 6/6 → 5/6。reranker 关闭时本条不生效（闸门照旧）。
+  coverage_relax_score: 0.55
   userdict_path: config/jieba_userdict.txt   # BM25 分词自定义词典（学院术语）
   stopwords_path: config/stopwords_zh.txt    # BM25 停用词表
 

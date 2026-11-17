@@ -219,7 +219,18 @@ class HybridRetriever:
         # 这里额外要求"问题的内容词确实出现在召回片段里"，否则判 off_topic。
         coverage, content_tokens = self._coverage(query, fused_chunks[: max(3, self._settings.retrieval.top_n)])
         min_coverage = self._settings.retrieval.min_lexical_coverage
-        off_topic = bool(content_tokens) and min_coverage > 0 and coverage < min_coverage
+        relax_score = self._settings.retrieval.coverage_relax_score
+        # 精排已经判定"这段证据与问题相关"时，词面重叠不再作为必要条件：
+        # 口语化提问的内容词往往一个都不在公文原文里，见 config.RetrievalConfig 的注释。
+        relaxed_by_rerank = bool(
+            gate == "rerank"
+            and relax_score > 0
+            and self._reranker is not None
+            and not self._reranker.is_mock
+            and best >= relax_score
+        )
+        coverage_floor = 0.0 if relaxed_by_rerank else min_coverage
+        off_topic = bool(content_tokens) and coverage_floor > 0 and coverage < coverage_floor
 
         has_evidence = bool(fused_chunks) and best >= threshold_value and not off_topic
 
@@ -242,6 +253,8 @@ class HybridRetriever:
                 "best_score": round(best, 6),
                 "reranker": self._reranker.name if self._reranker else None,
                 "lexical_coverage": round(coverage, 3),
+                "coverage_floor": coverage_floor,
+                "coverage_relaxed": relaxed_by_rerank,
                 "content_tokens": content_tokens,
                 "off_topic": off_topic,
                 "latency_ms": latency_ms,
