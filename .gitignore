@@ -7,6 +7,8 @@ venv/
 config/users.yaml
 config/*.local.yaml
 data/index/
+# bench 评测库的索引同样可重建，且 chroma 里有 782 条向量，别塞进 git
+data/bench/index/
 data/raw_history/
 logs/
 reports/
