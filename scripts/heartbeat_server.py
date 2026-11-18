@@ -54,6 +54,9 @@ class Sample:
     probed: bool = False
     probe_ms: int = 0
     probe_refused: bool = False
+    #: 服务端最近 60 秒的真实提问数（/health 提供），拿不到时为 None
+    qpm: int | None = None
+    online: int = 0
 
 
 @dataclass
@@ -72,7 +75,7 @@ class Monitor:
         now = time.time()
         self.qpm_window.append(now)
         self.qpm_window = [t for t in self.qpm_window if now - t <= 60.0]
-        qpm = len(self.qpm_window)
+        qpm = sample.qpm if sample.qpm is not None else len(self.qpm_window)
 
         if not sample.ok:
             self.failures += 1
@@ -131,12 +134,15 @@ class RagProbe:
             if resp.status_code != 200:
                 return Sample(False, latency, error=f"HTTP {resp.status_code}")
             data = resp.json()
+            raw_qpm = data.get("questions_per_minute")
             return Sample(
                 True,
                 latency,
                 chunks=int(data.get("chunks") or data.get("vector_chunks") or 0),
                 llm=str(data.get("llm") or ""),
                 llm_mock=bool(data.get("llm_mock")),
+                qpm=int(raw_qpm) if isinstance(raw_qpm, (int, float)) else None,
+                online=int(data.get("online") or 0),
             )
         except Exception as exc:  # connection refused, timeout, bad JSON
             latency = int((time.perf_counter() - started) * 1000)

@@ -179,3 +179,7 @@ class HealthResponse(BaseModel):
     llm_note: str = ""
     #: 配置里的对外域名（server.public_url），未配置时为空
     public_url: str = ""
+    #: 最近 5 分钟有过提问的会话数（内存近似值，单进程）
+    online: int = 0
+    #: 最近 60 秒的真实提问次数（不含健康检查轮询）
+    questions_per_minute: int = 0

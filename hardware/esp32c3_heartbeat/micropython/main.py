@@ -32,12 +32,7 @@ except ImportError:
     ssd1306 = None
 
 # ---------------------------------------------------------------- 硬件配置
-BUZZER_ENABLED = False    # 板上 GND/3V3 都被 OLED 占了，蜂鸣器先关；松出 GND 后改 True
-BUZZER_PIN = 5            # 蜂鸣器 I/O（接线：VCC→5V、GND→真 GND、I/O→GPIO5）
-BUZZER_GND_PIN = 0        # 用 GPIO0 拉低当"地"
-BUZZER_ACTIVE_LOW = False  # 实测：高电平触发（空闲必须给低，给高会长鸣）
-BUZZER_FREQ = 2700        # 保留：换成无源蜂鸣器时可切 PWM
-BUZZER_DUTY = 512
+# 本板只做屏幕显示（蜂鸣器已按需求移除）。
 I2C_CANDIDATES = ((8, 9), (4, 5), (6, 7))  # (SDA, SCL) 依次尝试
 I2C_FREQ = 400_000
 SCREEN_W, SCREEN_H = 128, 64
@@ -122,47 +117,6 @@ class Screen:
         if view["blink"]:
             fb.fill_rect(SCREEN_W - 8, 44, 6, 6, 1)
         fb.show()
-
-
-class Buzzer:
-    """蜂鸣器：信号在 BUZZER_PIN，GPIO0 拉低当假地，用 PWM 发声。
-
-    实测这板子上蜂鸣器的 GND 接在 GPIO0、I/O 接在 GPIO5，
-    所以启动时把 GPIO0 拉低当"地"，再用 PWM 驱动 GPIO5——
-    有源和无源蜂鸣器都能响。
-    """
-
-    def __init__(self):
-        self.pin = None
-        if not BUZZER_ENABLED:
-            print("buzzer disabled (set BUZZER_ENABLED=True after wiring is confirmed)")
-            return
-        try:
-            if BUZZER_GND_PIN is not None:
-                gnd = Pin(BUZZER_GND_PIN, Pin.OUT)
-                gnd.value(0)
-                self.gnd = gnd
-            self.pin = Pin(BUZZER_PIN, Pin.OUT)
-            # 空闲时必须输出高电平：这个蜂鸣器是低电平触发，拉低就长鸣。
-            self.pin.value(1 if BUZZER_ACTIVE_LOW else 0)
-        except Exception as exc:  # noqa: BLE001
-            print("buzzer init fail", exc)
-
-    def _on(self):
-        if self.pin is not None:
-            self.pin.value(0 if BUZZER_ACTIVE_LOW else 1)
-
-    def _off(self):
-        if self.pin is not None:
-            self.pin.value(1 if BUZZER_ACTIVE_LOW else 0)
-
-    def beep(self, count=1, on_ms=120, gap_ms=110):
-        for i in range(count):
-            self._on()
-            time.sleep_ms(on_ms)
-            self._off()
-            if i + 1 < count:
-                time.sleep_ms(gap_ms)
 
 
 class Heartbeat:
@@ -302,7 +256,6 @@ class BleLink:
 
 def main():
     screen = Screen()
-    buzzer = Buzzer()
     beat = Heartbeat()
     link = None
 
@@ -333,16 +286,7 @@ def main():
         if time.ticks_diff(now, last_draw) > 200:
             screen.draw(view)
             last_draw = now
-        # 报警：DOWN / LOST 三连响，20 秒重复；WARN 单响
-        alarm = view["state"] in ("DOWN", "LOST")
-        if alarm and time.ticks_diff(now, beat.last_alarm_ms) > REMIND_MS:
-            buzzer.beep(3)
-            beat.last_alarm_ms = now
-        elif view["state"] == "WARN" and not beat.warned:
-            buzzer.beep(1)
-            beat.warned = True
-        elif view["state"] not in ("WARN",):
-            beat.warned = False
+        # 只做显示：本板不接蜂鸣器，状态靠屏幕颜色与文字表达
         time.sleep_ms(50)
 
 

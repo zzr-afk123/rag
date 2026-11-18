@@ -30,6 +30,8 @@ def health(
     port = settings.server.port
     describe = getattr(service.llm, "describe", None)
     route_info = describe() if callable(describe) else {}
+    live = getattr(service, "live", None)
+    snapshot = live.snapshot() if live is not None else {}
     return HealthResponse(
         status="ok",
         llm=getattr(service.llm, "model", "unknown"),
@@ -45,4 +47,6 @@ def health(
         llm_active=str(route_info.get("active", "")),
         llm_note=llm_note(service.llm),
         public_url=settings.server.public_url,
+        online=int(snapshot.get("online", 0)),
+        questions_per_minute=int(snapshot.get("questions_per_minute", 0)),
     )
