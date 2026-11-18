@@ -293,30 +293,54 @@ try {
 
     # ---------- 2. 公网隧道 ----------
     Write-Step "创建 Cloudflare 临时隧道..." "Creating Cloudflare quick tunnel..."
-    Remove-Item $TunnelOut, $TunnelErr -ErrorAction SilentlyContinue
-    $tunnel = Start-Process -FilePath $cloudflared `
-        -ArgumentList @("tunnel", "--url", "http://127.0.0.1:$Port", "--no-autoupdate", "--protocol", "http2") `
-        -WorkingDirectory $ProjectRoot -NoNewWindow `
-        -RedirectStandardOutput $TunnelOut -RedirectStandardError $TunnelErr -PassThru
-
+    $urlPattern = 'https://(?<host>[A-Za-z0-9-]+)\.trycloudflare\.com'
+    # cloudflared 出错时会打印 api.trycloudflare.com 这类控制面域名，别把它当隧道地址
+    $notTunnel = @("api", "www", "developers", "dash")
     $url = $null
-    $deadline = (Get-Date).AddSeconds(90)
-    while ((Get-Date) -lt $deadline) {
-        Start-Sleep -Milliseconds 500
-        foreach ($f in @($TunnelErr, $TunnelOut)) {
-            if (-not (Test-Path $f)) { continue }
-            try { $text = Get-Content $f -Raw -ErrorAction Stop } catch { continue }
-            if ($text -and ($text -match "https://[A-Za-z0-9-]+\.trycloudflare\.com")) {
-                $url = $Matches[0]
+    $lastError = ""
+    $tunnel = $null
+    for ($attempt = 1; $attempt -le 3; $attempt++) {
+        if ($attempt -gt 1) {
+            Write-Note "隧道没建成，$(10 * $attempt) 秒后重试（第 $attempt/3 次）" "Tunnel attempt $attempt of 3 failed; retrying in $(10 * $attempt)s"
+            Start-Sleep -Seconds (10 * $attempt)
+        }
+        Remove-Item $TunnelOut, $TunnelErr -ErrorAction SilentlyContinue
+        $tunnel = Start-Process -FilePath $cloudflared `
+            -ArgumentList @("tunnel", "--url", "http://127.0.0.1:$Port", "--no-autoupdate", "--protocol", "http2") `
+            -WorkingDirectory $ProjectRoot -NoNewWindow `
+            -RedirectStandardOutput $TunnelOut -RedirectStandardError $TunnelErr -PassThru
+
+        $deadline = (Get-Date).AddSeconds(60)
+        while ((Get-Date) -lt $deadline) {
+            Start-Sleep -Milliseconds 500
+            foreach ($f in @($TunnelErr, $TunnelOut)) {
+                if (-not (Test-Path $f)) { continue }
+                try { $text = Get-Content $f -Raw -ErrorAction Stop } catch { continue }
+                if (-not $text) { continue }
+                # 用 [regex]::Match 而不是 -match + $Matches：后者在函数/循环里偶尔拿到 $null
+                $m = [regex]::Match($text, $urlPattern)
+                if ($m.Success -and ($notTunnel -notcontains $m.Groups["host"].Value.ToLower())) {
+                    $url = $m.Value
+                    break
+                }
+            }
+            if ($url) { break }
+            if ($tunnel.HasExited) {
+                try { $lastError = (Get-Content $TunnelErr -Tail 6 -ErrorAction Stop) -join " | " } catch { }
                 break
             }
         }
         if ($url) { break }
-        if ($tunnel.HasExited) {
-            throw "cloudflared 启动失败（exit $($tunnel.ExitCode)），详见：$TunnelErr"
-        }
     }
-    if (-not $url) { throw "90 秒内没拿到隧道地址，详见：$TunnelErr" }
+
+    if (-not $url) {
+        $hint = ""
+        if ($lastError -match "429|Tunnelstore") {
+            $hint = "`nCloudflare 现在对免费临时隧道限流了（429 Tunnelstore request failed）——同一条网络短时间内建了太多次隧道。" +
+                    "`n  ① 过几分钟再点一次；② 换手机热点再试；③ 实在急就先在局域网演示（http://<本机IP>:$Port/）。"
+        }
+        throw "没能建起公网隧道。$hint`n最后一段 cloudflared 输出：$lastError`n详见：$TunnelErr"
+    }
     $url = $url.Trim()
 
     # ---------- 3. 从公网侧验一次 ----------
@@ -407,9 +431,9 @@ else:
 finally {
     Write-Host ""
     Write-Step "正在清理..." "Stopping everything..."
-    if ($tunnel) { Stop-Tree $tunnel.Id }
-    if ($server) { Stop-Tree $server.Id }
-    if ($model) { Stop-Tree $model.Id }
+    if ($tunnel -and $tunnel.Id) { Stop-Tree $tunnel.Id }
+    if ($server -and $server.Id) { Stop-Tree $server.Id }
+    if ($model -and $model.Id) { Stop-Tree $model.Id }
     Remove-Item $PidFile, $UrlFile -ErrorAction SilentlyContinue
     Write-Step "已退出" "Bye"
 }
