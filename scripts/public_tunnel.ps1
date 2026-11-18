@@ -183,10 +183,14 @@ if ((Test-Path $PidFile) -and (Test-Path $UrlFile)) {
         if (Get-Process -Id $prev.tunnel_pid -ErrorAction SilentlyContinue) {
             $prevUrl = (Get-Content $UrlFile -Raw).Trim()
             Write-Host ""
-            Write-Host "  已经有一条演示通道在运行：" -ForegroundColor Yellow
+            Write-Host "  已经有一条演示通道在运行（不是这个窗口起的）：" -ForegroundColor Yellow
             Write-Host "  $prevUrl" -ForegroundColor Green
-            Write-Host "  要停掉它，请到那个窗口按 Ctrl+C 或直接关闭窗口。" -ForegroundColor Yellow
+            Write-Host "  这个地址可以直接用；要重开一条，请先关掉那个窗口（或用任务管理器结束 cloudflared）。" -ForegroundColor Yellow
             Write-Host ""
+            if (-not $NoBrowser) { try { Start-Process $prevUrl } catch { } }
+            # 别静默退出：双击 .bat 时窗口一闪而过，用户会以为"按钮坏了"
+            Write-Host "  按回车关闭这个窗口..." -ForegroundColor DarkGray
+            $null = Read-Host
             exit 0
         }
     } catch { }
