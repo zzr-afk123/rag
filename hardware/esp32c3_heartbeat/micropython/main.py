@@ -32,8 +32,12 @@ except ImportError:
     ssd1306 = None
 
 # ---------------------------------------------------------------- 硬件配置
-BUZZER_PIN = 0            # 蜂鸣器接 GPIO0（D0/IO0）
-BUZZER_ACTIVE_LOW = True  # 低电平响，多数有源蜂鸣器模块就是这样
+BUZZER_ENABLED = False    # 板上 GND/3V3 都被 OLED 占了，蜂鸣器先关；松出 GND 后改 True
+BUZZER_PIN = 5            # 蜂鸣器 I/O（接线：VCC→5V、GND→真 GND、I/O→GPIO5）
+BUZZER_GND_PIN = 0        # 用 GPIO0 拉低当"地"
+BUZZER_ACTIVE_LOW = False  # 实测：高电平触发（空闲必须给低，给高会长鸣）
+BUZZER_FREQ = 2700        # 保留：换成无源蜂鸣器时可切 PWM
+BUZZER_DUTY = 512
 I2C_CANDIDATES = ((8, 9), (4, 5), (6, 7))  # (SDA, SCL) 依次尝试
 I2C_FREQ = 400_000
 SCREEN_W, SCREEN_H = 128, 64
@@ -121,23 +125,38 @@ class Screen:
 
 
 class Buzzer:
+    """蜂鸣器：信号在 BUZZER_PIN，GPIO0 拉低当假地，用 PWM 发声。
+
+    实测这板子上蜂鸣器的 GND 接在 GPIO0、I/O 接在 GPIO5，
+    所以启动时把 GPIO0 拉低当"地"，再用 PWM 驱动 GPIO5——
+    有源和无源蜂鸣器都能响。
+    """
+
     def __init__(self):
         self.pin = None
+        if not BUZZER_ENABLED:
+            print("buzzer disabled (set BUZZER_ENABLED=True after wiring is confirmed)")
+            return
         try:
+            if BUZZER_GND_PIN is not None:
+                gnd = Pin(BUZZER_GND_PIN, Pin.OUT)
+                gnd.value(0)
+                self.gnd = gnd
             self.pin = Pin(BUZZER_PIN, Pin.OUT)
-            self._off()
+            # 空闲时必须输出高电平：这个蜂鸣器是低电平触发，拉低就长鸣。
+            self.pin.value(1 if BUZZER_ACTIVE_LOW else 0)
         except Exception as exc:  # noqa: BLE001
             print("buzzer init fail", exc)
 
     def _on(self):
-        if self.pin:
+        if self.pin is not None:
             self.pin.value(0 if BUZZER_ACTIVE_LOW else 1)
 
     def _off(self):
-        if self.pin:
+        if self.pin is not None:
             self.pin.value(1 if BUZZER_ACTIVE_LOW else 0)
 
-    def beep(self, count=1, on_ms=70, gap_ms=90):
+    def beep(self, count=1, on_ms=120, gap_ms=110):
         for i in range(count):
             self._on()
             time.sleep_ms(on_ms)
