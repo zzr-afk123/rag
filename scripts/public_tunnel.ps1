@@ -24,6 +24,7 @@ param(
     [switch]$SkipModel,
     [switch]$BindLan,
     [int]$StartupTimeoutSeconds = 180,
+    [switch]$NoHeartbeat,
     [switch]$NoBrowser
 )
 
@@ -42,6 +43,8 @@ $TunnelOut    = Join-Path $LogDir "cloudflared.out.log"
 $TunnelErr    = Join-Path $LogDir "cloudflared.err.log"
 $LlamaOut     = Join-Path $LogDir "llama-server.log"
 $LlamaErr     = Join-Path $LogDir "llama-server.err.log"
+$HeartbeatOut = Join-Path $LogDir "heartbeat.out.log"
+$HeartbeatErr = Join-Path $LogDir "heartbeat.err.log"
 $UrlFile      = Join-Path $LogDir "tunnel-url.txt"
 $PidFile      = Join-Path $LogDir "tunnel.pid.json"
 $VenvPython   = Join-Path $ProjectRoot ".venv\Scripts\python.exe"
@@ -295,6 +298,23 @@ try {
     }
     Write-Step "本地服务就绪：http://127.0.0.1:$Port/" "Service ready: http://127.0.0.1:$Port/"
 
+    # ---------- 1.5 心跳屏（ESP32-C3 的小屏，走蓝牙） ----------
+    if (-not $NoHeartbeat) {
+        Write-Step "启动心跳屏监视（蓝牙推送到 RAG-HB）..." "Starting heartbeat monitor (BLE -> RAG-HB)..."
+        Remove-Item $HeartbeatOut, $HeartbeatErr -ErrorAction SilentlyContinue
+        $heartbeat = Start-Process -FilePath $VenvPython `
+            -ArgumentList @("-u", (Join-Path $ProjectRoot "scripts\heartbeat_server.py"), "--url", "http://127.0.0.1:$Port", "--interval", "5") `
+            -WorkingDirectory $ProjectRoot -NoNewWindow `
+            -RedirectStandardOutput $HeartbeatOut -RedirectStandardError $HeartbeatErr -PassThru
+        Start-Sleep -Seconds 3
+        if ($heartbeat.HasExited) {
+            Write-Note "心跳屏监视启动失败（exit $($heartbeat.ExitCode)），详见：$HeartbeatErr" "Heartbeat monitor exited early; see $HeartbeatErr"
+            $heartbeat = $null
+        } else {
+            Write-Step "心跳屏已推送（板子没插也不影响问答，日志：logs\heartbeat.out.log）" "Heartbeat running (log: logs\heartbeat.out.log)"
+        }
+    }
+
     # ---------- 2. 公网隧道 ----------
     Write-Step "创建 Cloudflare 临时隧道..." "Creating Cloudflare quick tunnel..."
     $urlPattern = 'https://(?<host>[A-Za-z0-9-]+)\.trycloudflare\.com'
@@ -383,6 +403,7 @@ else:
         server_pid  = if ($server) { $server.Id } else { 0 }
         tunnel_pid  = $tunnel.Id
         model_pid   = if ($model) { $model.Id } else { 0 }
+        heartbeat_pid = if ($heartbeat) { $heartbeat.Id } else { 0 }
         url         = $url
         started_at  = (Get-Date).ToString("s")
     } | ConvertTo-Json | Set-Content -Path $PidFile -Encoding UTF8
@@ -409,6 +430,9 @@ else:
         Write-Host "  回答模型：Qwen3-4B-Instruct-2507（本机 llama.cpp，约 49 token/s）" -ForegroundColor Gray
     }
     Write-Host "  第一次检索要加载 reranker，慢一点属正常。" -ForegroundColor Gray
+    if ($heartbeat) {
+        Write-Host "  心跳屏   已推送状态到 RAG-HB（板子不在也照常问答）" -ForegroundColor Gray
+    }
     if ($reusedModel) {
         Write-Host "  注意：本地模型是之前就开着的，关闭本窗口不会关掉它。" -ForegroundColor Yellow
     }
@@ -429,6 +453,10 @@ else:
         if ($tunnel.HasExited) { Write-Note "隧道进程已退出，演示结束" "The tunnel process exited - demo finished"; break }
         if ($server -and $server.HasExited) { Write-Note "本地服务已退出，演示结束" "The local service exited - demo finished"; break }
         if ($model -and $model.HasExited) { Write-Note "本地模型进程已退出，演示结束" "The local model process exited - demo finished"; break }
+        if ($heartbeat -and $heartbeat.HasExited) {
+            Write-Note "心跳屏进程退出了（问答不受影响）；想恢复就重新开一个窗口" "Heartbeat monitor exited (service unaffected)"
+            $heartbeat = $null
+        }
         Start-Sleep -Milliseconds 800
     }
 }
@@ -438,6 +466,7 @@ finally {
     if ($tunnel -and $tunnel.Id) { Stop-Tree $tunnel.Id }
     if ($server -and $server.Id) { Stop-Tree $server.Id }
     if ($model -and $model.Id) { Stop-Tree $model.Id }
+    if ($heartbeat -and $heartbeat.Id) { Stop-Tree $heartbeat.Id }
     Remove-Item $PidFile, $UrlFile -ErrorAction SilentlyContinue
     Write-Step "已退出" "Bye"
 }
