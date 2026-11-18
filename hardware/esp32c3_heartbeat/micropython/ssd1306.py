@@ -31,7 +31,9 @@ class SSD1306_I2C(framebuf.FrameBuffer):
         self.height = height
         self.pages = height // 8
         self.buffer = bytearray(self.pages * width)
-        super().__init__(self.buffer, width, height, framebuf.MONO_HLSB)
+        # SSD1306 的显存是"页"结构：一个字节 = 同一列的 8 个纵向像素。
+        # framebuf 必须用 MONO_VLSB 才能对上；用 MONO_HLSB 会让每个字变成雪花点。
+        super().__init__(self.buffer, width, height, framebuf.MONO_VLSB)
         self._cmd(
             _SET_DISP | 0x00,
             _SET_MEM_ADDR, 0x00,
