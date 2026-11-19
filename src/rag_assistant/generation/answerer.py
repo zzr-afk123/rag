@@ -554,7 +554,12 @@ class Answerer:
         latency = round((time.perf_counter() - started) * 1000, 1)
 
         if self._settings.generation.require_citation and not remap.has_citation:
-            logger.warning("流式引用校验失败（闸门2），要求前端替换为拒答")
+            logger.warning(
+                "流式引用校验失败（闸门2），要求前端替换为拒答；问题=%r 最优分=%.4f 候选=%d",
+                question[:80],
+                float(getattr(retrieval, "best_score", 0.0) or 0.0),
+                len(getattr(retrieval, "chunks", ()) or ()),
+            )
             yield {
                 "type": "retract",
                 "reason": "citation_invalid",

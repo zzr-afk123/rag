@@ -52,6 +52,13 @@ $LlamaBackends = Join-Path $env:USERPROFILE ".lmstudio\extensions\backends"
 $LlamaModels   = Join-Path $env:USERPROFILE ".lmstudio\models"
 $ModelId       = "qwen3-4b-instruct-2507"
 
+# 模型已经下载好了，就别每次启动再去 huggingface 探测版本：
+# hf-mirror 经常 429/500，会白等 30–60 秒并往日志里刷一堆无关告警。
+$env:HF_HUB_OFFLINE = "1"
+$env:TRANSFORMERS_OFFLINE = "1"
+$env:HF_HUB_DISABLE_TELEMETRY = "1"
+$env:HF_HUB_DISABLE_PROGRESS_BARS = "1"
+
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
 
 # 控制台只输出 ASCII（中文在某些 PS 5.1 控制台会被重复绘制）；
