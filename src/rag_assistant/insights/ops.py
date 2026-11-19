@@ -272,9 +272,6 @@ def latest_eval_summary(reports_dir: Path) -> dict[str, Any] | None:
     )
     if not candidates:
         return None
-    latest = candidates[0]
-    text = read_tail(latest, max_bytes=64 * 1024)
-    numbers: dict[str, Any] = {}
     patterns = {
         "decision_accuracy": r"判断准确率\D*([0-9.]+%)",
         "induced_rate": r"被诱导\D*([0-9.]+%)",
@@ -282,15 +279,23 @@ def latest_eval_summary(reports_dir: Path) -> dict[str, Any] | None:
         "point_coverage": r"要点覆盖\D*([0-9.]+%)",
         "hit_at_1": r"Hit@1\D*([0-9./]+)",
     }
-    for key, pattern in patterns.items():
-        match = re.search(pattern, text)
-        if match:
-            numbers[key] = match.group(1)
-    return {
-        "file": latest.name,
-        "mtime": datetime.fromtimestamp(latest.stat().st_mtime).isoformat(timespec="seconds"),
-        "metrics": numbers,
-    }
+    # 报告目录里既有对抗集摘要（有这几项指标），也有逐题明细（没有），
+    # 取"最新的一份且至少能解析出一项指标"，否则页面会显示成"没解析到指标"。
+    for latest in candidates[:5]:
+        text = read_tail(latest, max_bytes=64 * 1024)
+        numbers: dict[str, Any] = {}
+        for key, pattern in patterns.items():
+            match = re.search(pattern, text)
+            if match:
+                numbers[key] = match.group(1)
+        if not numbers:
+            continue
+        return {
+            "file": latest.name,
+            "mtime": datetime.fromtimestamp(latest.stat().st_mtime).isoformat(timespec="seconds"),
+            "metrics": numbers,
+        }
+    return None
 
 
 def json_number(value: object) -> float | None:

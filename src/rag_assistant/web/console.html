@@ -35,7 +35,7 @@
   .card h2 { font-size: 14px; margin: 0 0 10px; color: #2b3d55; letter-spacing: .01em; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .card h2 .sub { font-weight: 400; font-size: 12px; color: var(--muted); }
   .kpi .label { font-size: 12px; color: var(--muted); }
-  .kpi .value { font-size: 34px; font-weight: 700; line-height: 1.15; margin: 4px 0 2px; color: var(--brand); font-variant-numeric: tabular-nums; }
+  .kpi .value { font-size: 34px; font-weight: 700; line-height: 1.32; margin: 4px 0 2px; color: var(--brand); font-variant-numeric: tabular-nums; }
   .kpi .value.small { font-size: 26px; }
   .kpi .hint { font-size: 12px; color: var(--muted); }
   .kpi.live .value { color: var(--ok); }
@@ -44,6 +44,11 @@
   th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #eef2f7; vertical-align: top; }
   th { color: var(--muted); font-weight: 500; font-size: 12px; }
   tr:last-child td { border-bottom: none; }
+  /* 告警里带 URL 和栈信息，不断词就会把整块卡片撑破 */
+  #events table { table-layout: fixed; }
+  #events td { overflow-wrap: anywhere; word-break: break-word; }
+  #events td:nth-child(1), #events td:nth-child(2) { white-space: nowrap; overflow-wrap: normal; word-break: keep-all; }
+  #events td.tiny { line-height: 1.55; }
   .num { font-variant-numeric: tabular-nums; }
   .bar { position: relative; height: 6px; background: #eef2f7; border-radius: 999px; overflow: hidden; min-width: 60px; }
   .bar > i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--brand); border-radius: 999px; }

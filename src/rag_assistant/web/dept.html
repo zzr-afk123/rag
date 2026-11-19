@@ -60,8 +60,10 @@
   }
   button.primary { background: var(--brand); border-color: var(--brand); color: #fff; }
   button.primary:hover { background: var(--brand-2); }
-  button.mini { padding: 4px 10px; font-size: 12px; border-radius: 8px; vertical-align: middle; }
-  .card h2 button.mini { float: right; }
+  button.mini { padding: 4px 10px; font-size: 12px; border-radius: 8px; line-height: 1.35; }
+  /* 标题里带按钮时用弹性布局，避免按钮比标题行高、把文字挤出框 */
+  .card h2 { display: flex; align-items: center; gap: 10px; }
+  .card h2 button.mini { margin-left: auto; }
   button:disabled { opacity: .55; cursor: not-allowed; }
   .stamp { font-size: 12px; color: var(--muted); }
 
