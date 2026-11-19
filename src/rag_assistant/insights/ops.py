@@ -33,6 +33,9 @@ REASON_LABELS: dict[str, str] = {
 #: 日志行的级别字段，用于从 app.log 里挑错误
 _LOG_LINE = re.compile(r"^(?P<ts>\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2})[^\|]*\|\s*(?P<level>[A-Z]+)\s*\|")
 
+#: pytest 跑测试时留下的痕迹（临时目录、故意构造的坏文件），运维台不展示
+_TEST_NOISE = re.compile(r"\.pytest-tmp|pytest-of-|test_missing_|test_sync_|坏文件")
+
 #: "最近 N 次"耗时统计的样本数
 RECENT_SAMPLE = 50
 
@@ -217,6 +220,10 @@ def recent_events(
         if level not in wanted:
             continue
         message = text[match.end() :].strip()[:400]
+        # 跑测试时也会写日志（临时项目根的路径、故意构造的坏文件）。运维台是给
+        # 值班人员看"服务发生了什么"的，这些痕迹只会误导，一律跳过。
+        if _TEST_NOISE.search(message):
+            continue
         key = (level, message)
         current = merged.get(key)
         if current is None:
