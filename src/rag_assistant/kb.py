@@ -293,6 +293,18 @@ class KnowledgeBase:
             exclude_dirs=self.settings.sync.exclude_dirs,
         )
 
+        # BM25 索引文件损坏/丢失时会被当成空索引，而文件本身没变，diff 永远是"未变"，
+        # 结果关键词召回一直空着。这里做一次自愈：清单里有文档但 BM25 为空就强制重建。
+        if not rebuild and scanned and self.bm25.count == 0:
+            manifest = load_manifest(self.settings.manifest_path)
+            if manifest.docs:
+                rebuild = True
+                report.rebuild = True
+                logger.warning(
+                    "BM25 索引为空但清单里有 %d 篇文档，本次按全量重建处理",
+                    len(manifest.docs),
+                )
+
         # 同一份文件的多个年份/版本：只索引最新的，旧的当"已删除"处理
         current = scanned
         if getattr(self.settings.sync, "prefer_latest_version", True):

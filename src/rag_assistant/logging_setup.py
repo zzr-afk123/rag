@@ -16,6 +16,8 @@ from __future__ import annotations
 import json
 import logging
 import logging.config
+import os
+from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
 from string import Template
@@ -84,6 +86,17 @@ def setup_logging(
         return
 
     cfg = settings or get_settings()
+    # RAG_LOG_DIR：把"仓库自身的 logs/"重定向到别处（测试用）。
+    # 只对落在仓库目录里的日志目录生效——临时项目根（tmp_path）本来就隔离，
+    # 那些用例要断言自己目录下的 qa.jsonl，不能一起搬走。
+    override = os.environ.get("RAG_LOG_DIR")
+    if override:
+        from .config import PROJECT_ROOT as _REPO_ROOT
+
+        target = Path(cfg.log_dir).resolve()
+        repo = Path(_REPO_ROOT).resolve()
+        if target == repo or repo in target.parents:
+            cfg = replace(cfg, logging=replace(cfg.logging, dir=override))
     cfg.log_dir.mkdir(parents=True, exist_ok=True)
     path = Path(config_path) if config_path else cfg.root / "config" / "logging.yaml"
     if not path.exists():  # pragma: no cover - 兜底配置

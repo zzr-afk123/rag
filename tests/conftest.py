@@ -13,10 +13,18 @@
 
 from __future__ import annotations
 
+import os
 import shutil
 import sys
+import tempfile
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
+
+# 必须在导入任何 rag_assistant 模块之前设置：模块导入期（例如 api.main 里
+# 模块级的 create_app）就可能调用 setup_logging，那时日志目录已经定了。
+# 指向临时目录后，跑测试永远不会再往真实的 logs/ 里写东西。
+_TEST_LOG_DIR = Path(tempfile.mkdtemp(prefix="rag-test-logs-"))
+os.environ.setdefault("RAG_LOG_DIR", str(_TEST_LOG_DIR))
 
 import pytest
 import yaml
@@ -30,6 +38,20 @@ for extra in (SRC_DIR, SCRIPTS_DIR):
 
 from rag_assistant.config import PROJECT_ROOT as CONFIG_ROOT  # noqa: E402
 from rag_assistant.config import Settings, build_settings, load_yaml  # noqa: E402
+from rag_assistant import logging_setup as _logging_setup  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def reset_logging_between_tests() -> Iterator[None]:
+    """每个用例前后复位 logging 的"已配置"标志。
+
+    ``setup_logging`` 有全局幂等标志：只要有一个用例用真实项目根配置过日志，
+    后面的用例即使指向 tmp 项目根也不会重新配置，日志会写进真实的 ``logs/``
+    （运维台的告警面板里就混进了 pytest 的临时路径）。逐用例复位即可。
+    """
+    _logging_setup._CONFIGURED = False
+    yield
+    _logging_setup._CONFIGURED = False
 
 
 @pytest.fixture(scope="session")

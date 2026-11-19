@@ -61,6 +61,25 @@ def test_sync_is_idempotent(mock_settings: Settings, sample_raw_dir: Path) -> No
     assert kb.status()["vector_chunks"] > 0
 
 
+def test_sync_rebuilds_when_bm25_index_is_lost(mock_settings: Settings, sample_raw_dir: Path) -> None:
+    """BM25 索引损坏/丢空时，sync 要按全量重建，否则关键词召回会一直是空的。
+
+    现实中见过：索引文件被写坏的瞬间刚好被读到，load 失败按空索引处理，
+    而文件内容没变，diff 永远是"未变"，于是 BM25 一直空着、检索只剩向量一路。
+    """
+    kb = KnowledgeBase(mock_settings)
+    kb.sync()
+    before = kb.bm25.count
+    assert before > 0
+
+    kb.bm25.clear()  # 模拟"加载失败 → 空索引"
+    report = kb.sync()
+
+    assert report.ok, report.failed
+    assert report.rebuild is True
+    assert kb.bm25.count == before
+
+
 def test_modified_file_reindexed(mock_settings: Settings, sample_raw_dir: Path) -> None:
     """改内容 → 只重建该文档，旧 chunk 被删掉（不会新旧并存）。"""
     kb = KnowledgeBase(mock_settings)

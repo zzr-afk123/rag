@@ -18,7 +18,8 @@ handlers:
     class: logging.StreamHandler
     level: ${LEVEL}
     formatter: plain
-    stream: ext://sys.stdout
+    # 日志走 stderr：脚本的 --json / 表格输出留在 stdout，管道才不会被日志行打断
+    stream: ext://sys.stderr
   app_file:
     class: logging.handlers.TimedRotatingFileHandler
     level: ${LEVEL}
@@ -49,6 +50,15 @@ loggers:
     level: ERROR
     handlers: [error_file]
     propagate: false
+  # 模型已经下载到本地，启动时 huggingface_hub 仍会试连 hf-mirror，
+  # 离线模式下每条都会打一条 "Cannot reach the Hub ... offline mode is enabled"。
+  # 这些不是服务问题，压到 ERROR 免得把运维台的告警面板刷满。
+  huggingface_hub:
+    level: ERROR
+    propagate: true
+  urllib3:
+    level: ERROR
+    propagate: true
 
 root:
   level: WARNING
