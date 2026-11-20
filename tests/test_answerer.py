@@ -398,6 +398,22 @@ def test_stream_retract_when_no_citation(answerer_settings: Settings) -> None:
     assert str(events[-1]["answer"]).startswith(REFUSE)
 
 
+def test_stream_retract_carries_refusal_fields(answerer_settings: Settings) -> None:
+    """retract 帧必须自带拒答标记与联系方式。
+
+    前端是靠 ``refused`` 决定要不要画那个橙色「拒答」角标、要不要把气泡染成
+    警示色的；这里少一个字段，界面上就退化成"普通回答"，用户在 2026-11-20
+    实际遇到过。
+    """
+    events = list(build_answerer(answerer_settings, StubRetriever(evidence_result()), NoCitationLLM()).stream("休学多久"))
+    retract = events[-1]
+    assert retract["type"] == "retract"
+    assert retract["refused"] is True
+    assert retract["refusal_reason"] == "citation_invalid"
+    assert retract["citations"] == []
+    assert isinstance(retract["contacts"], list)
+
+
 def test_stream_llm_error(answerer_settings: Settings) -> None:
     events = list(build_answerer(answerer_settings, StubRetriever(evidence_result()), FailingLLM()).stream("休学多久"))
     assert events[-1]["type"] == "done"

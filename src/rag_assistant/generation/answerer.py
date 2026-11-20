@@ -547,6 +547,11 @@ class Answerer:
                 "type": "retract",
                 "reason": "claim_unsupported",
                 "answer": self._refusal(retrieval, "claim_unsupported"),
+                # retract 也是拒答：字段要和 done 帧对齐，否则前端只会当普通回答渲染
+                "refused": True,
+                "refusal_reason": "claim_unsupported",
+                "citations": [],
+                "contacts": self._contacts(question, rewritten=rewrite.standalone),
                 "latency_ms": round((time.perf_counter() - started) * 1000, 1),
             }
             return
@@ -564,6 +569,10 @@ class Answerer:
                 "type": "retract",
                 "reason": "citation_invalid",
                 "answer": self._refusal(retrieval, "citation_invalid"),
+                "refused": True,
+                "refusal_reason": "citation_invalid",
+                "citations": [],
+                "contacts": self._contacts(question, rewritten=rewrite.standalone),
                 "latency_ms": latency,
             }
             return

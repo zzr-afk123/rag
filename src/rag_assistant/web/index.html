@@ -915,7 +915,11 @@
       view.body.textContent = (event.message || '回答过程中出现异常，请重试。');
       view.root.classList.add('refused');
     } else if (event.type === 'done' || event.type === 'retract') {
-      if (event.type === 'retract' && !event.refusal_reason) event.refusal_reason = event.reason;
+      if (event.type === 'retract') {
+        // retract 的语义就是"把已经显示的内容换成拒答"，无论服务端有没有带 refused
+        event.refused = true;
+        if (!event.refusal_reason) event.refusal_reason = event.reason;
+      }
       finalize(view, event);
     }
   }
