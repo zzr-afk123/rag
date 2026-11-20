@@ -85,6 +85,33 @@ BLE 默认 MTU 只能写 20 字节，所以 PC 端按 20 字节切片顺序写�
 - 收不到数据：先 `python -m mpremote connect COM5 fs cat last.txt` 看板子最后收到
   什么；注意 `mpremote` 会打断正在运行的程序，看完记得 `reset`。
 
+## 日志
+
+监视器会把每条采样写成一行 JSON（`logs/heartbeat/heartbeat.jsonl`），但**不是每 5 秒
+写一次盘**：先攒在内存里，攒够 50 条或过了 30 秒才落一次盘；遇到 `WARN`/`DOWN` 这类
+异常则立刻写，保证故障现场不丢。
+
+写满一个文件就滚动，历史份数固定，所以磁盘占用有硬上限：
+
+| 参数 | 默认 | 说明 |
+|---|---|---|
+| `--log` | `logs/heartbeat/heartbeat.jsonl` | 日志路径（相对路径按仓库根算） |
+| `--log-max-mb` | `2` | 单个文件上限 |
+| `--log-keep` | `5` | 保留几份历史（当前 + 5 份 ≈ **12 MB** 封顶） |
+| `--log-flush` | `30` | 每多少秒落一次盘 |
+| `--log-records` | `50` | 攒够多少条提前落盘 |
+| `--no-log` | — | 完全不写文件 |
+
+滚动规则是最老先删：`heartbeat.jsonl` → `heartbeat.1.jsonl` → `…` → 超出 `keep`
+的那份直接 `unlink`，所以长期挂着也不会把盘吃满。写盘失败（文件被占用、盘满）不会
+让监视器退出，错误计入 `errors`，积压超过 20 批就丢最老的一半，内存同样有上限。
+
+一条日志长这样：
+
+```json
+{"ts": "2026-11-20T23:27:16", "state": "WARN", "line": "state=WARN;lat=2640;qpm=1;chunks=0;mock=0;msg=first failure, retrying", "ble": "off", "sample": {"ok": false, "latency_ms": 2640, "error": "ConnectError", ...}}
+```
+
 ## 文件
 
 - `micropython/main.py` —— 板子程序（BLE 外设 + OLED 渲染 + 状态机）

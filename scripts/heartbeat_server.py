@@ -23,6 +23,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
 import sys
 import time
 from dataclasses import dataclass, field
@@ -37,6 +38,10 @@ NUS_RX_UUID = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
 NUS_TX_UUID = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
 
 MAX_LINE = 120
+
+#: 仓库根目录（这个脚本在 scripts/ 下），日志默认落在 <repo>/logs/heartbeat/
+REPO_ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_LOG_PATH = REPO_ROOT / "logs" / "heartbeat" / "heartbeat.jsonl"
 
 
 def _now() -> str:
@@ -103,6 +108,167 @@ def build_line(state: str, sample: Sample, qpm: int, message: str) -> str:
     if msg:
         line += f";msg={msg}"
     return line[:MAX_LINE]
+
+
+# --------------------------------------------------------------------------- #
+# 日志：内存里攒一会儿再落盘，写满就滚动，总量有硬上限
+# --------------------------------------------------------------------------- #
+def human_bytes(size: float) -> str:
+    for unit in ("B", "KB", "MB", "GB"):
+        if size < 1024 or unit == "GB":
+            return f"{size:.1f} {unit}" if unit != "B" else f"{int(size)} B"
+        size /= 1024
+    return f"{size:.1f} GB"
+
+
+@dataclass
+class LogConfig:
+    """日志文件的位置与容量预算。"""
+
+    path: Path = DEFAULT_LOG_PATH
+    #: 单个文件写满多少字节就滚一份
+    max_bytes: int = 2 * 1024 * 1024
+    #: 保留几份历史（不含当前这份）
+    keep: int = 5
+    #: 每多少秒强制落一次盘
+    flush_seconds: float = 30.0
+    #: 攒够多少条就提前落盘
+    flush_records: int = 50
+
+    @property
+    def cap_bytes(self) -> int:
+        return self.max_bytes * (self.keep + 1)
+
+
+class SampleLog:
+    """心跳样本的缓冲日志。
+
+    这些样本是"每 5 秒一条"的流水，逐条 fsync 既慢又没必要，所以先攒在内存，
+    攒够 ``flush_records`` 条或过了 ``flush_seconds`` 秒才写一次盘。
+
+    容量是**硬上限**：当前文件写到 ``max_bytes`` 就改名成 ``xxx.1``，后面的依次
+    后移，超出 ``keep`` 的最老一份直接删掉。所以整个目录最多占用
+    ``max_bytes * (keep + 1)`` 字节，长期跑也不会把盘吃满。
+
+    写盘失败（比如文件被占用、盘满）不会把监视器带崩：错误记在 ``errors`` 里，
+    待写内容继续留着下次再试；积压过多时丢掉最老的一半，保证内存也有上限。
+    """
+
+    def __init__(self, config: LogConfig | None = None) -> None:
+        self.config = config or LogConfig()
+        self.pending: list[str] = []
+        self.last_flush = time.monotonic()
+        self.written = 0
+        self.rotations = 0
+        self.dropped = 0
+        self.errors = 0
+
+    # -- 路径 ---------------------------------------------------------------
+    @property
+    def path(self) -> Path:
+        return self.config.path
+
+    def backup_path(self, index: int) -> Path:
+        stem = self.path.stem
+        return self.path.with_name(f"{stem}.{index}{self.path.suffix}")
+
+    def existing_files(self) -> list[Path]:
+        files = [self.path] + [self.backup_path(i) for i in range(1, self.config.keep + 1)]
+        return [p for p in files if p.exists()]
+
+    def usage(self) -> tuple[int, int]:
+        """返回 (占用字节数, 文件个数)。"""
+        files = self.existing_files()
+        return sum(p.stat().st_size for p in files), len(files)
+
+    def describe(self) -> str:
+        used, count = self.usage()
+        return (
+            f"log: {self.path}（当前 {count} 个文件 / {human_bytes(used)}；"
+            f"上限 {human_bytes(self.config.max_bytes)} × {self.config.keep + 1} = "
+            f"{human_bytes(self.config.cap_bytes)}；每 {int(self.config.flush_seconds)} 秒"
+            f"或 {self.config.flush_records} 条落盘）"
+        )
+
+    # -- 生命周期 -----------------------------------------------------------
+    def open(self) -> None:
+        """建目录，顺手清掉超出保留份数的旧文件。"""
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        for index in range(self.config.keep + 1, 64):
+            victim = self.backup_path(index)
+            if victim.exists():
+                try:
+                    victim.unlink()
+                except OSError:
+                    self.errors += 1
+        self.last_flush = time.monotonic()
+
+    # -- 写入 ---------------------------------------------------------------
+    def add(self, record: dict[str, Any]) -> None:
+        self.pending.append(json.dumps(record, ensure_ascii=False))
+        if (
+            len(self.pending) >= self.config.flush_records
+            or (time.monotonic() - self.last_flush) >= self.config.flush_seconds
+        ):
+            self.flush()
+
+    def flush(self, *, force: bool = False) -> bool:
+        """把攒下的记录写盘。写成功返回 True。"""
+        if not self.pending:
+            self.last_flush = time.monotonic()
+            return True
+        blob = "\n".join(self.pending) + "\n"
+        try:
+            self._rotate_if_needed(len(blob.encode("utf-8")))
+            with self.path.open("a", encoding="utf-8") as handle:
+                handle.write(blob)
+                handle.flush()
+                try:
+                    os.fsync(handle.fileno())
+                except OSError:
+                    pass  # 某些文件系统不支持 fsync，已经 write+flush 就够了
+        except OSError:
+            self.errors += 1
+            limit = self.config.flush_records * 20
+            if len(self.pending) > limit:
+                # 盘一直写不进去时别把内存也吃光
+                keep_from = len(self.pending) - self.config.flush_records * 10
+                self.dropped += keep_from
+                self.pending = self.pending[keep_from:]
+            return False
+        self.written += len(self.pending)
+        self.pending.clear()
+        self.last_flush = time.monotonic()
+        return True
+
+    def _rotate_if_needed(self, incoming: int) -> None:
+        current = self.path.stat().st_size if self.path.exists() else 0
+        if current + incoming <= self.config.max_bytes:
+            return
+        if self.config.keep <= 0:
+            if self.path.exists():
+                self.path.unlink()
+            self.rotations += 1
+            return
+        oldest = self.backup_path(self.config.keep)
+        if oldest.exists():
+            try:
+                oldest.unlink()
+            except OSError:
+                self.errors += 1
+        for index in range(self.config.keep - 1, 0, -1):
+            source = self.backup_path(index)
+            if source.exists():
+                try:
+                    source.replace(self.backup_path(index + 1))
+                except OSError:
+                    self.errors += 1
+        if self.path.exists():
+            try:
+                self.path.replace(self.backup_path(1))
+            except OSError:
+                self.errors += 1
+        self.rotations += 1
 
 
 # --------------------------------------------------------------------------- #
@@ -268,9 +434,26 @@ async def run(args: argparse.Namespace) -> int:
     probe = RagProbe(args.url, timeout=args.timeout)
     monitor = Monitor(fail_after=args.fail_after, warn_ms=args.warn_ms)
     board = Board(args.device, scan_timeout=args.scan_timeout, verbose=args.verbose)
-    log_path = Path(args.log) if args.log else None
-    if log_path:
-        log_path.parent.mkdir(parents=True, exist_ok=True)
+
+    sample_log: SampleLog | None = None
+    if not args.no_log:
+        target = Path(args.log) if args.log else DEFAULT_LOG_PATH
+        if not target.is_absolute():
+            target = REPO_ROOT / target
+        sample_log = SampleLog(
+            LogConfig(
+                path=target,
+                max_bytes=int(args.log_max_mb * 1024 * 1024),
+                keep=args.log_keep,
+                flush_seconds=args.log_flush,
+                flush_records=args.log_records,
+            )
+        )
+        sample_log.open()
+        used, count = sample_log.usage()
+        print(f"[{_now()}] {sample_log.describe()}")
+        if count:
+            print(f"[{_now()}] 已有日志 {count} 个文件 / {human_bytes(used)}，接着往后写")
 
     print(f"[{_now()}] monitoring {args.url} every {args.interval}s, board={args.device if not args.no_ble else 'none'}")
     if not args.no_ble and not board._bleak:
@@ -308,21 +491,19 @@ async def run(args: argparse.Namespace) -> int:
                 + (f" msg={message}" if message else "")
             )
 
-            if log_path:
-                with log_path.open("a", encoding="utf-8") as fh:
-                    fh.write(
-                        json.dumps(
-                            {
-                                "ts": datetime.now().isoformat(timespec="seconds"),
-                                "state": state,
-                                "line": line,
-                                "ble": ble_state,
-                                "sample": sample.__dict__,
-                            },
-                            ensure_ascii=False,
-                        )
-                        + "\n"
-                    )
+            if sample_log is not None:
+                sample_log.add(
+                    {
+                        "ts": datetime.now().isoformat(timespec="seconds"),
+                        "state": state,
+                        "line": line,
+                        "ble": ble_state,
+                        "sample": sample.__dict__,
+                    }
+                )
+                # 出问题的那一条不要等到攒满才写：按下去就是证据
+                if state != "OK":
+                    sample_log.flush()
 
             if args.once:
                 break
@@ -330,6 +511,15 @@ async def run(args: argparse.Namespace) -> int:
     except KeyboardInterrupt:
         print("\n[stopped]")
     finally:
+        if sample_log is not None:
+            if sample_log.flush(force=True):
+                used, count = sample_log.usage()
+                print(
+                    f"[{_now()}] 日志已落盘：{sample_log.written} 条 / "
+                    f"{count} 个文件 / {human_bytes(used)}（滚动 {sample_log.rotations} 次）"
+                )
+            else:
+                print(f"[{_now()}] 日志写入失败 {sample_log.errors} 次，剩余未写 {len(sample_log.pending)} 条")
         await board.disconnect()
         await probe.close()
     return 0
@@ -351,7 +541,16 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--question", default="学生休学最长可以多久？", help="探活用的问题"
     )
-    parser.add_argument("--log", default="", help="JSONL 日志路径，留空则不写")
+    parser.add_argument(
+        "--log",
+        default="",
+        help="日志文件路径（默认 logs/heartbeat/heartbeat.jsonl，相对路径按仓库根算）",
+    )
+    parser.add_argument("--no-log", action="store_true", help="完全不写日志文件")
+    parser.add_argument("--log-max-mb", type=float, default=2.0, help="单个日志文件的上限（MB）")
+    parser.add_argument("--log-keep", type=int, default=5, help="保留几份历史日志")
+    parser.add_argument("--log-flush", type=float, default=30.0, help="每多少秒落一次盘")
+    parser.add_argument("--log-records", type=int, default=50, help="攒够多少条就提前落盘")
     parser.add_argument("--verbose", action="store_true")
     args = parser.parse_args(argv)
     return asyncio.run(run(args))
