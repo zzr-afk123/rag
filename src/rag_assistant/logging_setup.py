@@ -109,8 +109,31 @@ def setup_logging(
 
     logging.config.dictConfig(_render_logging_yaml(path, cfg))
     _attach_qa_handler(cfg)
+    _quiet_third_party()
     _CONFIGURED = True
     get_logger(__name__).debug("日志系统初始化完成，目录=%s", cfg.log_dir)
+
+
+#: 这些库的 WARNING 在"模型已下载、离线运行"时没有处置价值，只会把运维台刷满。
+_QUIET_LOGGERS = (
+    "huggingface_hub",
+    "huggingface_hub.hf_api",
+    "huggingface_hub.utils._http",
+    "urllib3",
+    "httpx",
+    "filelock",
+)
+
+
+def _quiet_third_party() -> None:
+    """把第三方库的噪声日志压到 ERROR。
+
+    只在 yaml 里写 ``loggers.huggingface_hub.level`` 不够稳：子 logger 的
+    effective level 由最近一层显式设置 level 的祖先决定，而 ``hf_api`` 在
+    import 期自己可能设过 level。这里直接按名字逐个压。
+    """
+    for name in _QUIET_LOGGERS:
+        logging.getLogger(name).setLevel(logging.ERROR)
 
 
 def _attach_qa_handler(settings: Settings) -> None:
