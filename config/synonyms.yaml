@@ -1,0 +1,40 @@
+# 同义词归一表：把用户的口语说法换回制度里用的词。
+#
+# 起因：用户问"我是想要进校访问"，命中的却是《图书馆管理办法》里"校外访问电子数据库
+# 需通过校园 VPN 认证"——问的是人进校，答的是访问系统。分词之后「进校」和「入校」
+# 是完全不同的两个词，BM25 一分不给，词面覆盖也判成没命中。
+#
+# 写法：每个 group 一个 canonical（制度原文用的词）+ 若干 variants（用户可能说的）。
+# 替换按 variants 的长度从长到短进行，所以"进校园"会先于"进校"匹配。
+# 新加词只需要往对应 group 的 variants 里塞，不需要改代码。
+
+groups:
+  - canonical: 入校
+    variants: [进校, 进校园, 进入校园, 入校园, 来校, 进学校, 进入学校, 到校]
+
+  - canonical: 访客
+    variants: [来访, 外来人员, 校外人员, 外来访客, 外来车辆]
+
+  - canonical: 预约
+    variants: [预定, 约一下, 约个时间]
+
+  - canonical: 报销
+    variants: [报账, 报消, 报销费用]
+
+  - canonical: 在读证明
+    variants: [在校证明, 在学证明, 就读证明, 在读正明]
+
+  - canonical: 休学
+    variants: [休学手续, 办休学]
+
+  - canonical: 复学
+    variants: [回校上课, 复课, 返校复学]
+
+  - canonical: 通行
+    variants: [进出门, 出入]
+
+  - canonical: 图书馆
+    variants: [图书管, 书馆]
+
+  - canonical: 食堂
+    variants: [餐厅, 饭堂, 食堂开餐]

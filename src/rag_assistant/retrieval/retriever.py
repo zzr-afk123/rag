@@ -27,6 +27,7 @@ from ..vectorstore.base import VectorStore
 from .bm25 import BM25Index
 from .fusion import rrf_fuse
 from .models import RetrievalResult, RetrievedChunk
+from .query import SynonymTable
 from .reranker import Reranker
 
 logger = get_logger("retrieval.retriever")
@@ -40,6 +41,14 @@ _QUESTION_WORDS = frozenset(
         "能否", "需要", "要不要", "有没有", "是谁", "谁", "请问", "告诉", "一下",
         "相关", "具体", "一般", "规定", "政策", "办法",
     }
+)
+
+#: 多义词：同一个词在不同制度里指完全不同的东西，不能拿来当"问的是这个主题"的证据。
+#: 「访问」既可以是"进校访问"，也可以是"校外访问数据库"（VPN）；「通行」既可以是
+#: "车辆通行"也可以是"人员通行"。把它们计入分母，只会让"词面重合但主题错误"的
+#: 片段更容易过关——这正是"问进校、答 VPN"那次事故的机制。
+_AMBIGUOUS_WORDS = frozenset(
+    {"访问", "通行", "办理", "查询", "使用", "操作", "系统", "管理", "服务", "方式"}
 )
 
 
@@ -62,6 +71,8 @@ class HybridRetriever:
         self._reranker = reranker
         #: 可选的索引锁（阶段 E）。约定接口：``read()`` 上下文管理器。
         self._lock = lock
+        #: 同义词表：把"进校/来访/图书管"这类口语说法换回"入校/访客/图书馆"
+        self._synonyms = SynonymTable.load(settings.resolve(settings.retrieval.synonyms_path))
 
     # ---- 单路召回 ----
     def _vector_recall(self, query: str) -> tuple[list[str], dict[str, RetrievedChunk]]:
@@ -128,7 +139,17 @@ class HybridRetriever:
         """检索主体（不加锁）。"""
         started = time.perf_counter()
         limit = top_n or self._settings.retrieval.top_n
-        queries = [query] + [q.strip() for q in extra_queries if q and q.strip() and q.strip() != query]
+        normalized = self._synonyms.normalize(query)
+        synonyms_hit = self._synonyms.matched(query)
+        queries = [query]
+        # 归一后与原文不同，就用归一版再召回一次：两条都进 RRF，口语与公文用词都能命中
+        if normalized != query:
+            queries.append(normalized)
+        queries.extend(
+            q.strip()
+            for q in extra_queries
+            if q and q.strip() and q.strip() != query and q.strip() not in queries
+        )
 
         vector_rankings: list[list[str]] = []
         bm25_rankings: list[list[str]] = []
@@ -217,7 +238,7 @@ class HybridRetriever:
         # ---- 词面覆盖闸门（解决"问天气却答休学"）----
         # 分数阈值挡不住无关问题：向量/BM25 永远会返回 top-k，重排也会给一个分数。
         # 这里额外要求"问题的内容词确实出现在召回片段里"，否则判 off_topic。
-        coverage, content_tokens = self._coverage(query, fused_chunks[: max(3, self._settings.retrieval.top_n)])
+        coverage, content_tokens = self._coverage(normalized, fused_chunks[: max(3, self._settings.retrieval.top_n)])
         min_coverage = self._settings.retrieval.min_lexical_coverage
         relax_score = self._settings.retrieval.coverage_relax_score
         # 精排已经判定"这段证据与问题相关"时，词面重叠不再作为必要条件：
@@ -243,6 +264,8 @@ class HybridRetriever:
             has_evidence=has_evidence,
             diagnostics={
                 "queries": queries,
+                "normalized_query": normalized if normalized != query else "",
+                "synonyms": [list(pair) for pair in synonyms_hit],
                 "vector_hits": vector_hits_total,
                 "bm25_hits": bm25_hits_total,
                 "fused": len(fused),
@@ -285,11 +308,18 @@ class HybridRetriever:
 
         只统计"内容词"：疑问词与虚化词（多久/怎么/可以/规定…）不计入分母，
         否则"休学最长可以多久"这种正常问题会因为"可以/多久"没出现而被误拒。
+
+        多义词（访问/通行/办理/系统…）同样不计入：它们在每份制度里都出现，
+        拿它们当"主题命中"的证据，等于允许"问进校、答访问系统"这种错配通过。
         """
         tokenizer = getattr(self._bm25, "tokenizer", None)
         if tokenizer is None or not chunks:
             return 0.0, []
-        tokens = [token for token in tokenizer.tokenize(query) if token not in _QUESTION_WORDS]
+        tokens = [
+            token
+            for token in tokenizer.tokenize(query)
+            if token not in _QUESTION_WORDS and token not in _AMBIGUOUS_WORDS
+        ]
         unique = list(dict.fromkeys(tokens))
         if not unique:
             return 0.0, []

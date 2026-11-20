@@ -83,6 +83,10 @@ retrieval:
   coverage_relax_score: 0.45
   userdict_path: config/jieba_userdict.txt   # BM25 分词自定义词典（学院术语）
   stopwords_path: config/stopwords_zh.txt    # BM25 停用词表
+  # 同义词归一：检索前把口语说法换成制度用词（"进校"→"入校"、"来访"→"访客"）。
+  # 起因：问"我是想要进校访问"时命中《图书馆管理办法》的"校外访问电子数据库需 VPN"
+  # ——分词后「进校」与「入校」是两个词，BM25 一分不给、词面覆盖也判成没命中。
+  synonyms_path: config/synonyms.yaml
 
 chunking:
   max_tokens: 700

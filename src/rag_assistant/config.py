@@ -184,6 +184,10 @@ class RetrievalConfig:
     #: （reports/ablation-relax045.md：仍是 83.6%）。两条一起改才是 86.6%。
     #: 精排关掉时（gate=vector_cosine）这条不生效，词面闸门仍是唯一的跑题代理。
     coverage_relax_score: float = 0.45
+    #: 同义词表：把用户口语换回制度用词（"进校"→"入校"、"来访"→"访客"）。
+    #: 起因：问"我想进校访问"命中的却是"校外访问电子数据库需 VPN"——分词后
+    #: 「进校」和「入校」是两个词，BM25 不给分、覆盖闸门也判没命中。
+    synonyms_path: str = "config/synonyms.yaml"
     userdict_path: str = "config/jieba_userdict.txt"
     stopwords_path: str = "config/stopwords_zh.txt"
 
