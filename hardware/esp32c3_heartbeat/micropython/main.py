@@ -39,7 +39,7 @@ SCREEN_W, SCREEN_H = 128, 64
 
 # 屏幕右下角会显示这个版本号：换过固件后先看它有没有变，
 # 否则"屏上还是 MOCK!"其实只是板子里跑的是旧代码。
-FW_VERSION = "v3"
+FW_VERSION = "v4"
 
 LOST_MS = 15_000
 REMIND_MS = 20_000
@@ -101,18 +101,18 @@ class Screen:
             return
         fb = self.dev
         fb.fill(0)
-        # 顶部状态条：反白文字
+        # 顶部状态条：反白文字。左=服务状态，右=模型是否在线（YES/NO）。
+        # 模型位放在这条反白栏里最清楚：塞在中间行 chunks 右边容易被挤糊。
         fb.fill_rect(0, 0, SCREEN_W, 13, 1)
         fb.text(view["state"], 2, 3, 0)
-        if view["ble"]:
-            fb.text("BLE", SCREEN_W - 26, 3, 0)
-        else:
-            fb.text("---", SCREEN_W - 26, 3, 0)
-        # 延迟大数字（居中放大 2 倍用两次普通文本拼出来太丑，直接左对齐）
+        fb.text(view["model"], SCREEN_W - 30, 3, 0)
+        # 延迟与速率
         fb.text(view["latency"], 2, 17, 1)
         fb.text(view["rate"], 70, 17, 1)
+        # 片段数单独一行，右边只放 BLE 状态（断开时才出现），避免并排糊在一起
         fb.text(view["chunks"], 2, 28, 1)
-        fb.text(view["model"], 68, 28, 1)
+        if not view["ble"]:
+            fb.text("BLE OFF", SCREEN_W - 42, 28, 1)
         # 分隔线
         fb.hline(0, 39, SCREEN_W, 1)
         fb.text(view["beat"], 2, 43, 1)
@@ -185,11 +185,11 @@ class Heartbeat:
         rate = "--/m" if self.qpm is None else "%d/m" % self.qpm
         chunks = "chunks --" if self.chunks is None else "chunks %d" % self.chunks
         # 只回答"模型在不在线"：YES=真实模型可用，NO=mock 或画面已停更。
-        # 不再显示 real / MOCK! 这类短词，屏上小字号渲染容易糊。
+        # 顶栏是反白窄条，字越短越清楚，所以这里只写 YES / NO。
         if age is None or age > LOST_MS:
-            model = "LLM NO"
+            model = "NO"
         else:
-            model = "LLM NO" if self.mock else "LLM YES"
+            model = "NO" if self.mock else "YES"
         if age is None:
             beat = "beat --"
         else:
