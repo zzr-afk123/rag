@@ -36,6 +36,7 @@ except ImportError:
 I2C_CANDIDATES = ((8, 9), (4, 5), (6, 7))  # (SDA, SCL) 依次尝试
 I2C_FREQ = 400_000
 SCREEN_W, SCREEN_H = 128, 64
+SCREEN_CONTRAST = 0x6A          # 0x00-0xFF；觉得暗就往上调，过曝就往下调
 
 # 屏幕右下角会显示这个版本号：换过固件后先看它有没有变，
 # 否则"屏上还是 MOCK!"其实只是板子里跑的是旧代码。
@@ -86,7 +87,7 @@ class Screen:
             if addr is None:
                 continue
             try:
-                self.dev = ssd1306.SSD1306_I2C(i2c, addr, SCREEN_W, SCREEN_H)
+                self.dev = ssd1306.SSD1306_I2C(i2c, addr, SCREEN_W, SCREEN_H, contrast=SCREEN_CONTRAST)
             except Exception as exc:  # noqa: BLE001
                 print("oled init fail", exc)
                 continue

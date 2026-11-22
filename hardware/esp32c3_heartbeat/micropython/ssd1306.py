@@ -5,6 +5,8 @@ import framebuf
 import time
 
 _SET_CONTRAST = 0x81
+# 默认对比度：出厂常见 0xCF，拉满 0xFF 在录像里过曝，0x6A 左右既清楚又不刺眼
+DEFAULT_CONTRAST = 0x6A
 _SET_ENTIRE_ON = 0xA4
 _SET_NORM_INV = 0xA6
 _SET_DISP = 0xAE
@@ -24,7 +26,7 @@ _SET_CHARGE_PUMP = 0x8D
 
 
 class SSD1306_I2C(framebuf.FrameBuffer):
-    def __init__(self, i2c, addr=0x3C, width=128, height=64):
+    def __init__(self, i2c, addr=0x3C, width=128, height=64, contrast=DEFAULT_CONTRAST):
         self.i2c = i2c
         self.addr = addr
         self.width = width
@@ -46,7 +48,7 @@ class SSD1306_I2C(framebuf.FrameBuffer):
             _SET_DISP_CLK_DIV, 0x80,
             _SET_PRECHARGE, 0xF1,
             _SET_VCOM_DESEL, 0x30,
-            _SET_CONTRAST, 0xFF,
+            _SET_CONTRAST, contrast & 0xFF,
             _SET_ENTIRE_ON,
             _SET_NORM_INV,
             _SET_CHARGE_PUMP, 0x14,
