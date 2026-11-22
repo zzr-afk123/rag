@@ -9,7 +9,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 
 from ...chat_service import ChatService
 from ...config import Settings
@@ -23,11 +23,14 @@ router = APIRouter(tags=["health"])
 
 @router.get("/health", response_model=HealthResponse, summary="健康检查")
 def health(
+    request: Request,
     service: ChatService = Depends(get_chat),
     settings: Settings = Depends(get_settings_dep),
 ) -> HealthResponse:
     host = settings.server.host
-    port = settings.server.port
+    # 实际监听端口可能与配置不同（例如 -port 8020 临时起一份给评委看），
+    # 这里以本次请求落到的端口为准，否则 lan_urls 会指回 8000 让人以为没起来。
+    port = request.url.port or settings.server.port
     describe = getattr(service.llm, "describe", None)
     route_info = describe() if callable(describe) else {}
     live = getattr(service, "live", None)

@@ -143,6 +143,18 @@
     margin: 0 0 14px; padding: 11px 14px; border-radius: 12px; font-size: 13px;
     background: var(--warn-bg); color: var(--warn); border: 1px solid #f2e2bd;
   }
+  /* 演示模式提示：没配模型 API 时，页面上必须一眼看出来，别让人以为这就是效果 */
+  .mocktip {
+    margin: 0 0 14px; padding: 11px 40px 11px 14px; border-radius: 12px; font-size: 12.8px;
+    line-height: 1.6; position: relative;
+    background: #fff8e8; color: #8a5a00; border: 1px dashed #e8c98a;
+  }
+  .mocktip strong { color: #7a4a00; }
+  .mocktip .close {
+    position: absolute; right: 8px; top: 6px; border: 0; background: transparent;
+    color: #a9803a; font-size: 16px; line-height: 1; cursor: pointer; padding: 4px 6px;
+  }
+  .mocktip .close:hover { color: #7a4a00; }
   .empty-state {
     background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
     padding: 26px 22px; box-shadow: var(--shadow); text-align: center;
@@ -363,6 +375,10 @@
 </section>
 
 <main class="wrap">
+  <div id="mockTip" class="mocktip" hidden>
+    <button class="close" id="mockTipClose" type="button" aria-label="关闭提示">×</button>
+    <strong>演示模式</strong>：<span id="mockTipText"></span>
+  </div>
   <div id="notice" class="notice" hidden></div>
   <div class="thread" id="thread"></div>
 
@@ -443,6 +459,9 @@
   var newBtn = document.getElementById('newBtn');
   var emptyState = document.getElementById('emptyState');
   var dirPills = document.getElementById('dirPills');
+  var mockTipEl = document.getElementById('mockTip');
+  var mockTipText = document.getElementById('mockTipText');
+  var mockTipClose = document.getElementById('mockTipClose');
 
   var params = new URLSearchParams(location.search);
   if (params.get('token')) {
@@ -1044,6 +1063,30 @@
     } catch (err) { /* 品牌接口失败不影响问答 */ }
   }
 
+  // 没配模型 API 时，页面上要一眼看到"这是演示模式"，否则会被当成真实效果。
+  var MOCK_TIP_DEFAULT = '当前没有配置模型 API（.env 里的 DEEPSEEK_API_KEY 为空，也没有配置本地模型），'
+    + '回答由规则拼接生成，仅用于验证链路与界面。在 .env 填入 API Key（或接入本地模型）后重启即为真实模型。';
+
+  async function bootHealth() {
+    try {
+      var resp = await fetch('/health');
+      if (!resp.ok) return;
+      var health = await resp.json();
+      var closed = sessionStorage.getItem('rag_mock_tip_closed') === '1';
+      if (!health.llm_mock || closed) { mockTipEl.hidden = true; return; }
+      var note = (health.llm_note || '').trim();
+      mockTipText.textContent = note || MOCK_TIP_DEFAULT;
+      mockTipEl.hidden = false;
+    } catch (err) { /* 提示失败不影响问答 */ }
+  }
+
+  if (mockTipClose) {
+    mockTipClose.addEventListener('click', function () {
+      mockTipEl.hidden = true;
+      sessionStorage.setItem('rag_mock_tip_closed', '1');
+    });
+  }
+
   async function boot() {
     try {
       var response = await fetch('/kb/status', { headers: headers() });
@@ -1066,6 +1109,7 @@
 
   bootBrand();
   boot();
+  bootHealth();
 })();
 </script>
 <script src="/static/auth-nav.js"></script>

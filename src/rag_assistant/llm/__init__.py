@@ -109,10 +109,12 @@ def get_llm(settings: Settings) -> LLMClient:
     import logging
 
     logging.getLogger("rag_assistant.llm").warning(
-        "既没有可用的主模型 Key，也没有配置备用模型，使用 mock LLM（回答为规则生成，仅用于演示）"
+        "未配置模型 API：.env 里没有 %s，也没有配置 llm.fallback_*（本地模型），"
+        "回答将由规则拼接，仅用于演示链路。填 Key 或接入本地模型后重启即为真实模型。",
+        config.api_key_env,
     )
     return _tag(
         MockLLM(refuse_text=settings.generation.refuse_text),
-        f"没有 {config.api_key_env}，也没有配置 llm.fallback_*（本地模型）——回落到 mock，"
-        "回答是规则拼接的原文摘录；用「RAG 一键公网」启动即可接本地模型",
+        f"未配置模型 API：.env 里没有 {config.api_key_env}，也没有配置 llm.fallback_*（本地模型），"
+        "回答由规则拼接，仅用于验证链路与界面；填 Key 或接入本地模型后重启即为真实模型",
     )

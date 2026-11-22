@@ -14,6 +14,73 @@
 
 ---
 
+## 0. 五分钟验收（评委 / 新同学从这里开始）
+
+代码全部在仓库里，**不用跑模型也能验证"是不是真的能跑"**。三条路径按需要选：
+
+| 路径 | 用途 | 需要什么 | 耗时 |
+|---|---|---|---|
+| **A 离线复跑** | 证明代码可复跑、测试是真的 | 只需要 Python 3.10+（不联网） | 3–5 分钟（首次装依赖） |
+| **B 界面点一遍** | 看问答、引用、拒答、看板、运维台 | 同上 | 2 分钟 |
+| **C 真实效果** | 看真实模型答得怎么样 | DeepSeek Key **或** 本机 LM Studio/Ollama | 5–30 分钟（首次下载模型） |
+
+### A. 离线复跑（推荐先做这一步）
+
+```powershell
+# 一条命令：建 .venv → 装依赖 → 建演示账号 → 跑全量测试（默认 583 项）
+.\verify.bat          # 或双击「验收.bat」
+```
+
+等价的手工命令：
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+.\.venv\Scripts\python.exe scripts\manage_users.py init --weak-demo-passwords
+$env:RAG_FORCE_MOCK="1"
+.\.venv\Scripts\python.exe -m pytest        # 预期：583 passed（约 1–3 分钟）
+```
+
+> 不要再加 `-q`：`pyproject.toml` 的 `addopts` 里已经有一个 `-q`，两个会变成 `-qq` 把汇总行吞掉。
+
+测试全程 `RAG_FORCE_MOCK=1`，**不下载任何模型、不访问外网**。
+
+### B. 界面点一遍
+
+```powershell
+.\start.bat            # 自动建 .venv / 装依赖 / 建索引 / 开浏览器
+```
+
+登录用 `scripts\manage_users.py init` 打印的演示账号（`20230001 / student123` 等）。
+若页面顶部出现一条黄色提示「**演示模式：未配置模型 API**」，说明当前是规则生成的回答，
+**它验证的是链路与界面，不代表真实回答质量** —— 这正是设计要求的行为（见下面 C）。
+
+### C. 真实效果（二选一）
+
+```powershell
+# 方式 1：云端，最省事。把 Key 写进项目根 .env
+Copy-Item .env.example .env
+notepad .env            # 填 DEEPSEEK_API_KEY=sk-...
+
+# 方式 2：本机模型（LM Studio 或 Ollama），不联网也能用
+#   详见 §3.1.1，核心是三行环境变量：
+#   RAG_LLM__PROVIDER=lmstudio
+#   RAG_LLM__MODEL=qwen3-4b-instruct-2507
+#   RAG_LLM__BASE_URL=http://127.0.0.1:1234/v1
+```
+
+`GET /health` 会直接告诉你现在用的是哪一个：`llm`、`llm_mock`、`llm_note`
+（`llm_mock=true` 时 `llm_note` 会写明"为什么是 mock"）。运维台 `/console` 顶部
+也有一行同样的说明。
+
+### 数字在哪、怎么复核
+
+- 评测报告全部随仓：`reports/`（73 题 bench、36 题真实链路、24 题对抗集、消融实验）
+- 脚本：`scripts/eval_adversarial.py`、`scripts/ablation.py`、`scripts/external_bench.py`
+- 每份报告头部都写了 **语料、模型、阈值、判定口径**；口径不同不能横向比，README §9 有说明
+
+---
+
 ## 1. 技术选型与理由
 
 ### 1.1 RAG 框架：LangChain（窄用）

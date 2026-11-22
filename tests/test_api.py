@@ -56,6 +56,8 @@ def test_index_page(client: TestClient) -> None:
     assert "text/html" in response.headers["content-type"]
     # 公网首页（面向访客）
     assert "制度与办事流程问答" in response.text
+    # 没配模型 API 时页面要顶部提示（演示模式），不能让人误当成真实效果
+    assert 'id="mockTip"' in response.text
 
 
 def test_console_page(client: TestClient) -> None:
