@@ -37,6 +37,10 @@ I2C_CANDIDATES = ((8, 9), (4, 5), (6, 7))  # (SDA, SCL) 依次尝试
 I2C_FREQ = 400_000
 SCREEN_W, SCREEN_H = 128, 64
 
+# 屏幕右下角会显示这个版本号：换过固件后先看它有没有变，
+# 否则"屏上还是 MOCK!"其实只是板子里跑的是旧代码。
+FW_VERSION = "v3"
+
 LOST_MS = 15_000
 REMIND_MS = 20_000
 
@@ -112,7 +116,9 @@ class Screen:
         # 分隔线
         fb.hline(0, 39, SCREEN_W, 1)
         fb.text(view["beat"], 2, 43, 1)
+        # 消息行左边、固件版本右边（版本号用来判断板子里跑的是不是最新代码）
         fb.text(view["msg"], 2, 53, 1)
+        fb.text(FW_VERSION, SCREEN_W - 16, 53, 1)
         # 心跳点：每收到一次数据闪一下，靠 view["blink"] 控制
         if view["blink"]:
             fb.fill_rect(SCREEN_W - 8, 44, 6, 6, 1)
@@ -178,12 +184,16 @@ class Heartbeat:
         lat = "-- ms" if self.latency is None else "%d ms" % self.latency
         rate = "--/m" if self.qpm is None else "%d/m" % self.qpm
         chunks = "chunks --" if self.chunks is None else "chunks %d" % self.chunks
-        model = "MOCK!" if self.mock else "real"
+        # 画面停更（失联/从没收到过）时不要把上一次的 MOCK! 留在屏幕上误导人
+        if age is None or age > LOST_MS:
+            model = "--"
+        else:
+            model = "MOCK!" if self.mock else "real"
         if age is None:
             beat = "beat --"
         else:
             beat = "beat %ds ago" % (age // 1000)
-        msg = self.msg if len(self.msg) <= 21 else self.msg[:20] + "~"
+        msg = self.msg if len(self.msg) <= 17 else self.msg[:16] + "~"
         blink = time.ticks_diff(self.blink_until, time.ticks_ms()) > 0
         return {
             "state": state,

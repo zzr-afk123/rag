@@ -43,6 +43,17 @@ Arduino 的 ESP32 内核需要 673 MB 的 RISC-V 工具链，这台机器的 Git
 .venv\Scripts\python.exe -m mpremote connect COM5 reset
 ```
 
+### 只更新程序（不用重刷固件）
+
+插上 USB，然后双击项目根目录的 **`烧录心跳屏.bat`**（等价命令）：
+`python scripts\upload_board.py`，不带 `--port` 会自动按 Espressif 的
+`VID_303A&PID_1001` 找串口；`--check` 只列板子上的文件、不覆盖。
+
+> **屏幕右下角有固件版本号（`v3`）**。如果屏上还显示 `MOCK!` 但服务明明是真实模型，
+> 先看这个版本号：不是 `v3` 就说明板子里跑的是旧代码，重新上传即可。
+> 从 v3 起，画面停更（失联或从未收到数据）时模型字段显示 `--`，不会再留着上一次的
+> `MOCK!` 误导人。
+
 ## 协议（PC → 板子，一行一条，`\n` 结尾）
 
 ```
