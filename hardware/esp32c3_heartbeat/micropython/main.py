@@ -39,7 +39,7 @@ SCREEN_W, SCREEN_H = 128, 64
 
 # 屏幕右下角会显示这个版本号：换过固件后先看它有没有变，
 # 否则"屏上还是 MOCK!"其实只是板子里跑的是旧代码。
-FW_VERSION = "v4"
+FW_VERSION = "v5"
 
 LOST_MS = 15_000
 REMIND_MS = 20_000
@@ -105,7 +105,8 @@ class Screen:
         # 模型位放在这条反白栏里最清楚：塞在中间行 chunks 右边容易被挤糊。
         fb.fill_rect(0, 0, SCREEN_W, 13, 1)
         fb.text(view["state"], 2, 3, 0)
-        fb.text(view["model"], SCREEN_W - 30, 3, 0)
+        fb.text(FW_VERSION, SCREEN_W - 52, 3, 0)
+        fb.text(view["model"], SCREEN_W - 24, 3, 0)
         # 延迟与速率
         fb.text(view["latency"], 2, 17, 1)
         fb.text(view["rate"], 70, 17, 1)
@@ -117,8 +118,8 @@ class Screen:
         fb.hline(0, 39, SCREEN_W, 1)
         fb.text(view["beat"], 2, 43, 1)
         # 消息行左边、固件版本右边（版本号用来判断板子里跑的是不是最新代码）
-        fb.text(view["msg"], 2, 53, 1)
-        fb.text(FW_VERSION, SCREEN_W - 16, 53, 1)
+        if view["msg"]:
+            fb.text(view["msg"], 2, 53, 1)
         # 心跳点：每收到一次数据闪一下，靠 view["blink"] 控制
         if view["blink"]:
             fb.fill_rect(SCREEN_W - 8, 44, 6, 6, 1)
@@ -132,7 +133,7 @@ class Heartbeat:
         self.qpm = None
         self.chunks = None
         self.mock = False
-        self.msg = "waiting for beat"
+        self.msg = ""
         self.last_ms = None
         self.blink_until = 0
         self.last_alarm_ms = 0
@@ -164,8 +165,8 @@ class Heartbeat:
                 pass
         if "mock" in data:
             self.mock = data["mock"] in ("1", "true", "True")
-        if "msg" in data:
-            self.msg = data["msg"][:40]
+        # 心跳行不带 msg 时就清空：占位文案一直挂着会被当成正文的一部分
+        self.msg = data["msg"][:40] if "msg" in data else ""
         self.last_ms = time.ticks_ms()
         self.blink_until = time.ticks_add(self.last_ms, 250)
 

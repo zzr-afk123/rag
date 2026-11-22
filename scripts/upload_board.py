@@ -109,7 +109,7 @@ def main() -> int:
     run([python, "-m", "mpremote", "connect", port, "reset"], check=False)
 
     print()
-    print("[OK] 固件已更新。屏幕右下角应显示 v3；")
+    print("[OK] 固件已更新。屏幕顶栏右侧应显示版本号（当前 v5）；")
     print("     若仍显示旧画面，拔插一次 USB 让它重新启动。")
     return 0
 
