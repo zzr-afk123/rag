@@ -66,7 +66,7 @@ state=OK;lat=837;qpm=3;chunks=90;mock=0;msg=hello
 | `lat` | 最近一次 /health 的响应毫秒数，未知用 `--` |
 | `qpm` | 最近 60 秒的真实提问数（取自 `/health` 的 `questions_per_minute`，不含健康检查轮询）|
 | `chunks` | 索引里的片段数 |
-| `mock` | `1` 表示跑的是 mock 模型（会显示 MOCK! 并警告）|
+| `mock` | `1` 表示跑的是 mock 模型；屏上模型位显示 `LLM NO`，真实模型显示 `LLM YES`（画面停更时也显示 `LLM NO`）|
 | `msg` | 一行短消息，屏幕最后一行显示 |
 
 BLE 默认 MTU 只能写 20 字节，所以 PC 端按 20 字节切片顺序写，板子按 `\n` 拼包。

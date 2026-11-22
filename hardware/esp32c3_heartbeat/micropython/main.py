@@ -112,7 +112,7 @@ class Screen:
         fb.text(view["latency"], 2, 17, 1)
         fb.text(view["rate"], 70, 17, 1)
         fb.text(view["chunks"], 2, 28, 1)
-        fb.text(view["model"], 70, 28, 1)
+        fb.text(view["model"], 68, 28, 1)
         # 分隔线
         fb.hline(0, 39, SCREEN_W, 1)
         fb.text(view["beat"], 2, 43, 1)
@@ -184,11 +184,12 @@ class Heartbeat:
         lat = "-- ms" if self.latency is None else "%d ms" % self.latency
         rate = "--/m" if self.qpm is None else "%d/m" % self.qpm
         chunks = "chunks --" if self.chunks is None else "chunks %d" % self.chunks
-        # 画面停更（失联/从没收到过）时不要把上一次的 MOCK! 留在屏幕上误导人
+        # 只回答"模型在不在线"：YES=真实模型可用，NO=mock 或画面已停更。
+        # 不再显示 real / MOCK! 这类短词，屏上小字号渲染容易糊。
         if age is None or age > LOST_MS:
-            model = "--"
+            model = "LLM NO"
         else:
-            model = "MOCK!" if self.mock else "real"
+            model = "LLM NO" if self.mock else "LLM YES"
         if age is None:
             beat = "beat --"
         else:
