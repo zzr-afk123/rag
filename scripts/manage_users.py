@@ -35,6 +35,22 @@ import yaml  # noqa: E402
 from rag_assistant.auth import ROLE_LABELS, UserStore, hash_password  # noqa: E402
 from rag_assistant.config import load_settings  # noqa: E402
 
+
+def make_console_safe() -> None:
+    """让脚本在非 UTF-8 控制台下也能跑完。
+
+    GitHub Actions 的 windows-latest runner 默认是 cp1252，``print("已写入账号：…")``
+    会直接抛 ``UnicodeEncodeError`` 让整步失败（ubuntu 上因为默认 UTF-8 不会暴露）。
+    这里把两个流设成"遇到编码不了的字符就用 ? 代替"，口令与文件写入都不受影响。
+    """
+
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(errors="replace")
+        except Exception:  # noqa: BLE001 - 老版本或已被重定向的流不支持 reconfigure
+            pass
+
+
 SEED = [
     ("20230001", "张三", "student", "", "student123"),
     ("20230002", "李四", "student", "", "student123"),
@@ -182,6 +198,7 @@ def cmd_toggle(path: Path, args: argparse.Namespace, active: bool) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    make_console_safe()
     settings = load_settings(ROOT / "config" / "settings.yaml", root=ROOT)
     default_path = settings.users_file
 
